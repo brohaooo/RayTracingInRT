@@ -33,7 +33,7 @@ class raytrace_camera {
 
     unsigned char * rendered_image = nullptr;
 
-    void render(const hittable& world) {
+    void render_to_stream(const hittable& world) {
         initialize();
 
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
@@ -49,6 +49,8 @@ class raytrace_camera {
                 write_color(std::cout, pixel_color, samples_per_pixel);
             }
         }
+
+
 
         std::clog << "\rDone.                 \n";
     }
@@ -76,6 +78,8 @@ class raytrace_camera {
                 *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.x));
                 *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.y));
                 *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.z));
+                *p++ = 255;
+
             }
         }
         FILE* file_pointer;
@@ -85,18 +89,19 @@ class raytrace_camera {
         {
             std::cout << "Error, Unable to open the file" << std::endl;
         }
-        svpng(file_pointer, image_width, image_height, rendered_image, 0);
+        svpng(file_pointer, image_width, image_height, rendered_image, 1);
 
         std::clog << "\rDone.                 \n";
     }
 
-    void non_blocking_render(const hittable& world) {
+    void non_blocking_render(const hittable& world, bool & finish_flag) {
         initialize();
-        std::thread t(&raytrace_camera::render_thread, this, std::ref(world));
+        std::thread t(&raytrace_camera::render_thread, this, std::ref(world), std::ref(finish_flag));
         t.detach();
     }
 
-    void render_thread(const hittable& world) {
+    // rgba
+    void render_thread(const hittable& world, bool& finish_flag) {
         unsigned char* p = rendered_image;
         for (int j = 0; j < image_height; ++j) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
@@ -114,9 +119,12 @@ class raytrace_camera {
                 *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.x));
                 *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.y));
                 *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.z));
+                *p++ = 255;
+
             }
         }
         std::clog << "\rDone.                 \n";
+        finish_flag = true;
     }
   
 
@@ -169,7 +177,13 @@ class raytrace_camera {
         // initialize the image buffer
         if (rendered_image != nullptr)
 			delete[] rendered_image;
-        rendered_image = new unsigned char[3 * image_width * image_height];
+        rendered_image = new unsigned char[4 * image_width * image_height];
+        // initialize the image buffer, rgba, let the alpha channel be 0
+        for (int i = 0; i < 4 * image_width * image_height; i++)
+		{
+			rendered_image[i] = 0;
+		}
+
     }
 
     ray get_ray(int i, int j) const {

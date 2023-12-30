@@ -36,8 +36,6 @@ class RT_renderer {
 	int image_width = 800;
 	int image_height = 600;
 
-    // some events flag
-    bool render_request = false;
 
 
 	RT_renderer() {
@@ -105,6 +103,9 @@ class RT_renderer {
         glCullFace(GL_BACK);
         glPointSize(8.0);
         glLineWidth(4.0);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 
 
@@ -199,7 +200,9 @@ class RT_renderer {
 
 
     void process_input() {
-		processInput(window);
+        if (enable_keyboard_input) {
+            processInput(window);
+        }
 	}
 
     void poll_events() {
@@ -232,7 +235,7 @@ class RT_renderer {
             frameTime_list.push_back(fps);
             num_frames_in_sliding_window++;
         }
-        float average_fps = 1.0f * (num_frames_in_sliding_window - 1) / (frameTime_list.back() - frameTime_list.front());
+        average_fps = 1.0f * (num_frames_in_sliding_window - 1) / (frameTime_list.back() - frameTime_list.front());
 
         // render part is here
         // ------
@@ -243,29 +246,29 @@ class RT_renderer {
 
 
 
+        
+
+        if (sphereObject != nullptr) {
+            sphereObject->setView(GL_camera->GetViewMatrix());
+            sphereObject->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
+
+            sphereObject->draw();
+        }
+        if (sphereObject2 != nullptr) {
+            sphereObject2->setView(GL_camera->GetViewMatrix());
+            sphereObject2->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
+
+            sphereObject2->draw();
+
+        }
+
         if (rectObject != nullptr) {
 
             unsigned char* rendered_output = RayTrace_camera->rendered_image;
             rectObject->updateTexture(rendered_output, image_width, image_height);
 
 
-			rectObject->draw();
-		}
-        else {
-            if (sphereObject != nullptr) {
-                sphereObject->setView(GL_camera->GetViewMatrix());
-                sphereObject->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
-
-                sphereObject->draw();
-            }
-            if (sphereObject2 != nullptr) {
-                sphereObject2->setView(GL_camera->GetViewMatrix());
-                sphereObject2->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
-
-                sphereObject2->draw();
-
-            }
-
+            rectObject->draw();
         }
 
 
@@ -281,6 +284,16 @@ class RT_renderer {
 
         
 	}
+
+    void reset_rendering() {
+		// reset the rendered image by delete the rectObject
+        if (rectObject != nullptr) {
+			delete rectObject;
+			rectObject = nullptr;
+		}
+
+	}
+
 
     void render_IMGUI() {
 		// imgui---------------------------
@@ -318,7 +331,7 @@ class RT_renderer {
     }
 
     void ray_trace_render_thread(const scene& Scene) {
-		RayTrace_camera->non_blocking_render(Scene.world);
+		RayTrace_camera->non_blocking_render(Scene.world, rendering_finished_flag);
 
         unsigned char* rendered_output = RayTrace_camera->rendered_image;
         if (rectObject == nullptr) {
@@ -328,8 +341,43 @@ class RT_renderer {
         rectObject->setTexture(rendered_output, image_width, image_height);
 	}
 
+    void set_mouse_input(bool enable) {
+        enable_mouse_input = enable;
+    }
+    void set_keyboard_input(bool enable) {
+		enable_keyboard_input = enable;
+	}
+    void set_camera_movement(bool enable) {
+        enable_camera_movement = enable;
+    }
+    bool is_mouse_input_enabled() {
+		return enable_mouse_input;
+	}
+    bool is_keyboard_input_enabled() {
+        return enable_keyboard_input;
+    }
+    bool is_camera_movement_enabled() {
+		return enable_camera_movement;
+	}
 
-
+    bool has_RT_render_request_flag() {
+		return RT_render_request_flag;
+	}
+    bool has_reset_request_flag() {
+        return reset_request_flag;
+    }
+    bool has_rendering_finished_flag() {
+		return rendering_finished_flag;
+	}
+    void reset_RT_render_request_flag() {
+        RT_render_request_flag = false;
+    }
+    void reset_reset_request_flag() {
+		reset_request_flag = false;
+	}
+    void reset_rendering_finished_flag() {
+        rendering_finished_flag = false;
+    }
 
 
 
@@ -338,6 +386,16 @@ class RT_renderer {
     private:
     //----------------------------------------------------------------------------------
     const bool _vSync = true; // Enable vsync
+
+    // some events flag
+    bool RT_render_request_flag = false;
+    bool reset_request_flag = false;
+    bool rendering_finished_flag = false;
+
+    // some control flags
+    bool enable_mouse_input = true;
+    bool enable_keyboard_input = true;
+    bool enable_camera_movement = true;
 
     // input callback functions
     void adjust_window_size(int width, int height);
@@ -348,7 +406,7 @@ class RT_renderer {
     static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
     void processInput(GLFWwindow* window);
 
-
+    // mouse movement variables
     float lastX = image_width / 2.0f;
     float lastY = image_height / 2.0f;
     bool firstMouse = true;
@@ -368,8 +426,6 @@ class RT_renderer {
     bool isSpaceKeyPressed = false;
     bool isRightKeyPressed = false;
     bool isDownKeyPressed = false;
-    bool regenerate = false;
-    float particle_render_scale = 0.17;
 
 };
 
@@ -424,8 +480,10 @@ void RT_renderer::capture_mouse_movement(double xposIn, double yposIn)
 
     lastX = xpos;
     lastY = ypos;
-
-    GL_camera->ProcessMouseMovement(xoffset, yoffset);
+    if (enable_mouse_input) {
+        GL_camera->ProcessMouseMovement(xoffset, yoffset);
+    }
+    
 }
 
 
@@ -452,34 +510,34 @@ void RT_renderer::processInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        // std::cout<<"W"<<std::endl;
-        GL_camera->ProcessKeyboard(FORWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        GL_camera->ProcessKeyboard(BACKWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        GL_camera->ProcessKeyboard(LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        GL_camera->ProcessKeyboard(RIGHT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-        GL_camera->ProcessKeyboard(UP, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        GL_camera->ProcessKeyboard(DOWN, deltaTime);
+    if (enable_camera_movement) {
+		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+			GL_camera->ProcessKeyboard(FORWARD, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+			GL_camera->ProcessKeyboard(BACKWARD, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+			GL_camera->ProcessKeyboard(LEFT, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+			GL_camera->ProcessKeyboard(RIGHT, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+			GL_camera->ProcessKeyboard(UP, deltaTime);
+		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+			GL_camera->ProcessKeyboard(DOWN, deltaTime);
+	}
 
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        if (!isSpaceKeyPressed) {
-            render_request = true;
-        }
-        isSpaceKeyPressed = true;
+        RT_render_request_flag = true;
     }
     else {
-        isSpaceKeyPressed = false;
-        render_request = false;
+        RT_render_request_flag = false;
     }
 
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
-        regenerate = true;
+        reset_request_flag = true;
     }
+    else {
+        reset_request_flag = false;
+	}
 
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
         if (!isRightKeyPressed) {
@@ -489,19 +547,12 @@ void RT_renderer::processInput(GLFWwindow* window)
     }
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
         if (!isDownKeyPressed) {
-            if (particle_render_scale >= 0.05) {
-                particle_render_scale -= 0.05;
-            }
-            else {
-                particle_render_scale = 0.17;
-            }
+            
         }
 
         isDownKeyPressed = true;
     }
-
     else {
-        isRightKeyPressed = false;
         isDownKeyPressed = false;
     }
 }
