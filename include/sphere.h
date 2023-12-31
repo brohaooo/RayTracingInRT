@@ -65,7 +65,7 @@ class sphere : public hittable {
     // the input p is a point on the UNIT sphere
     static void get_sphere_uv(const glm::vec3& p, float& u, float& v) {
 		auto theta = acos(-p.y);
-		auto phi = atan2(-p.z, p.x) + pi;
+		auto phi = atan2(-p.z, -p.x) + pi;
 
 		u = phi / (2*pi);
 		v = theta / pi;

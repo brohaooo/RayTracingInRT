@@ -19,7 +19,6 @@
 #include <list>
 
 #include "scene.h"
-#include "object.h"
 
 
 
@@ -28,13 +27,12 @@ class RT_renderer {
   public:
 	GLFWwindow * window = nullptr;
 	Shader * shader = nullptr;
-    Rect * rectObject = nullptr;
-    Sphere * sphereObject = nullptr;
-    Sphere * sphereObject2 = nullptr;
+    Rect * screenCanvas = nullptr;
 	raytrace_camera * RayTrace_camera = nullptr;
 	Camera * GL_camera = nullptr;
 	int image_width = 800;
 	int image_height = 600;
+
 
 
 
@@ -127,6 +125,16 @@ class RT_renderer {
 
         // set up Dear ImGui context
          //imgui config----------------------
+        ImGui_initialize();
+        // --------------------------------
+
+        Initialize_RayTrace_camera();
+
+	}
+
+    void ImGui_initialize() {
+        // set up Dear ImGui context
+         //imgui config----------------------
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         // set color theme
@@ -143,50 +151,24 @@ class RT_renderer {
         io.Fonts->AddFontFromFileTTF("../../resource/fonts/Karla-Regular.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
         io.Fonts->AddFontFromFileTTF("../../resource/fonts/ProggyClean.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
         io.Fonts->AddFontFromFileTTF("../../resource/fonts/Roboto-Medium.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
-        // --------------------------------
+    }
+
+    void Initialize_RayTrace_camera() {
+        // Setup ray_trace camera
+        RayTrace_camera = new raytrace_camera();
+        RayTrace_camera->aspect_ratio = static_cast<float>(image_width) / image_height;
+        RayTrace_camera->image_width = image_width;
+        RayTrace_camera->samples_per_pixel = 10;
+        RayTrace_camera->max_depth = 8;
+        RayTrace_camera->vfov = 20;
+        RayTrace_camera->lookfrom = GL_camera->Position;
+        RayTrace_camera->lookat = GL_camera->Front;
+        RayTrace_camera->vup = GL_camera->WorldUp;
+        RayTrace_camera->defocus_angle = 0; // no defocus blur, fuck it now, I hate it
+        RayTrace_camera->focus_dist = 10;
+    }
 
 
-        // set up shaders
-        // build and compile our shader program
-        // ------------------------------------
-        Shader ourShader("../../shaders/shader.vs", "../../shaders/shader.fs");// default shader, only render color
-
-
-        // set a debugging sphere
-        sphereObject = new Sphere();
-        sphereObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
-        sphereObject->setColor(glm::vec4(1.0, 0.0, 0.0, 1.0));
-        sphereObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
-        sphereObject->setView(GL_camera->GetViewMatrix());
-        sphereObject->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
-
-        sphereObject2 = new Sphere();
-        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
-        sphereObject2->setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
-        sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
-        sphereObject2->setView(GL_camera->GetViewMatrix());
-        sphereObject2->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
-
-
-
-
-
-		// Setup ray_trace camera
-		RayTrace_camera = new raytrace_camera();
-		RayTrace_camera->aspect_ratio = static_cast<float>(image_width) / image_height;
-		RayTrace_camera->image_width = image_width;
-		RayTrace_camera->samples_per_pixel = 5;
-		RayTrace_camera->max_depth = 5;
-		RayTrace_camera->vfov = 20;
-		RayTrace_camera->lookfrom = GL_camera->Position;
-		RayTrace_camera->lookat = GL_camera->Front;
-		RayTrace_camera->vup = GL_camera->WorldUp;
-		RayTrace_camera->defocus_angle = 0;
-		RayTrace_camera->focus_dist = 10;
-
-
-
-	}
 
     void update_RayTrace_camera() {
 		RayTrace_camera->lookfrom = GL_camera->Position;
@@ -213,10 +195,65 @@ class RT_renderer {
 		glfwSwapBuffers(window);
 	}   
 
-	void render() {
+	void render(std::vector<Object*> objects) {
 		// render loop
 		// -----------
         
+        // per-frame time logic
+        // --------------------
+        per_frame_time_logic();
+
+        // render part is here
+        // ------
+        // clear screen
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        RenderContext context;
+        context.viewMatrix = GL_camera->GetViewMatrix();
+        context.projectionMatrix = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f);
+        // render the scene using openGL rasterization pipeline
+        for (auto object : objects) {
+            object->prepareDraw(context);
+			object->draw();
+		}
+
+
+        if (screenCanvas != nullptr) {
+
+            unsigned char* rendered_output = RayTrace_camera->rendered_image;
+            screenCanvas->updateTexture(rendered_output, image_width, image_height,4);
+
+
+            screenCanvas->draw();
+        }
+
+
+
+
+        // imgui---------------------------
+        render_IMGUI();
+        // --------------------------------
+
+
+
+
+
+        
+	}
+
+    void reset_rendering() {
+		// reset the rendered image by delete the screenCanvas
+        if (screenCanvas != nullptr) {
+			delete screenCanvas;
+			screenCanvas = nullptr;
+		}
+
+	}
+
+
+    void per_frame_time_logic() {
         // per-frame time logic
         // --------------------
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -236,64 +273,7 @@ class RT_renderer {
             num_frames_in_sliding_window++;
         }
         average_fps = 1.0f * (num_frames_in_sliding_window - 1) / (frameTime_list.back() - frameTime_list.front());
-
-        // render part is here
-        // ------
-        // clear screen
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
-
-
-        
-
-        if (sphereObject != nullptr) {
-            sphereObject->setView(GL_camera->GetViewMatrix());
-            sphereObject->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
-
-            sphereObject->draw();
-        }
-        if (sphereObject2 != nullptr) {
-            sphereObject2->setView(GL_camera->GetViewMatrix());
-            sphereObject2->setProjection(glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f));
-
-            sphereObject2->draw();
-
-        }
-
-        if (rectObject != nullptr) {
-
-            unsigned char* rendered_output = RayTrace_camera->rendered_image;
-            rectObject->updateTexture(rendered_output, image_width, image_height);
-
-
-            rectObject->draw();
-        }
-
-
-
-
-        // imgui---------------------------
-        render_IMGUI();
-        // --------------------------------
-
-
-
-
-
-        
-	}
-
-    void reset_rendering() {
-		// reset the rendered image by delete the rectObject
-        if (rectObject != nullptr) {
-			delete rectObject;
-			rectObject = nullptr;
-		}
-
-	}
-
+    }
 
     void render_IMGUI() {
 		// imgui---------------------------
@@ -318,27 +298,27 @@ class RT_renderer {
 	}   
 
     void ray_trace_render(const scene& Scene) {
-        hittable_list world = Scene.world;
-		RayTrace_camera->render_to_png(world);
+        hittable_list RT_objects = Scene.RT_objects;
+		RayTrace_camera->render_to_png(RT_objects);
 
         unsigned char* rendered_output = RayTrace_camera->rendered_image;
-        if (rectObject == nullptr) {
-            rectObject = new Rect();
+        if (screenCanvas == nullptr) {
+            screenCanvas = new Rect();
 		}
-        rectObject->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
-        rectObject->setTexture(rendered_output, image_width, image_height);
+        screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
+        screenCanvas->setTexture(rendered_output, image_width, image_height,4);
 
     }
 
     void ray_trace_render_thread(const scene& Scene) {
-		RayTrace_camera->non_blocking_render(Scene.world, rendering_finished_flag);
+		RayTrace_camera->non_blocking_render(Scene.RT_objects, rendering_finished_flag);
 
         unsigned char* rendered_output = RayTrace_camera->rendered_image;
-        if (rectObject == nullptr) {
-            rectObject = new Rect();
+        if (screenCanvas == nullptr) {
+            screenCanvas = new Rect();
         }
-        rectObject->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
-        rectObject->setTexture(rendered_output, image_width, image_height);
+        screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
+        screenCanvas->setTexture(rendered_output, image_width, image_height,4);
 	}
 
     void set_mouse_input(bool enable) {

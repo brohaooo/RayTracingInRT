@@ -31,17 +31,25 @@
 int main() {
 
     
-    scene Scene;
-    RT_renderer renderer;
-    RTRTStateMachine state_machine;
-    state_machine.print_state();
+    
+    RT_renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
+    scene Scene; // create scene object, which contains all the objects in the scene
+    std::cout<<"scene created"<<std::endl;
+    RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
+    state_machine.print_state(); // initial state is idle
 
+    // TODO: extract event handling to a separate class from renderer
+
+
+    // main loop
     while (!glfwWindowShouldClose(renderer.window))
     {
+        // check last and current state
         std::string last_state = state_machine.get_current_state()->name;
         state_machine.update();
         std::string current_state = state_machine.get_current_state()->name;
 
+        // if state changed, print it as debugging info
         if (last_state != current_state) {
 			std::cout << "state changed from " << last_state << " to " << current_state << std::endl;
 		}
@@ -59,7 +67,9 @@ int main() {
                 renderer.set_mouse_input(false);
                 renderer.set_keyboard_input(false);
                 renderer.set_camera_movement(false);
-				renderer.ray_trace_render_thread(Scene);
+				renderer.ray_trace_render_thread(Scene);// if state changed from idle to ray tracing, start ray tracing thread
+                // such thread will write the output image to an array, and then the main thread will copy the array to the texture
+                // in renderer.render() function's updateTexture() call
 			}
 
 		}
@@ -74,9 +84,10 @@ int main() {
 			std::cout << "state not found" << std::endl;
 		}
 
-        renderer.process_input();
-        renderer.update_RayTrace_camera();
-        renderer.render();
+        // common tasks for all states
+        renderer.process_input(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
+        renderer.update_RayTrace_camera(); // update ray-tracing camera's position and direction to match the display camera's
+        renderer.render(Scene.objects); // render the scene using openGL rasterization pipeline
 
 
 

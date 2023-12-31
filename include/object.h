@@ -6,6 +6,14 @@
 #include <GLFW/glfw3.h>
 #include <shader.h>
 
+// 渲染上下文，包含渲染所需的所有数据
+struct RenderContext {
+public:
+	glm::mat4 viewMatrix;
+	glm::mat4 projectionMatrix;
+	// 其他可能的渲染数据...
+};
+
 
 class Object {
 public:
@@ -19,6 +27,79 @@ public:
 
 	// 绘制方法
 	virtual void draw() = 0;
+	// 准备绘制，比如MVP类模型需要在绘制前计算MVP矩阵
+	virtual void prepareDraw(const RenderContext& context) {
+		// 默认实现或空实现
+	}
+	virtual void setShader(Shader* _shader) {
+		shader = _shader;
+	}
+	virtual void Delete() = 0;
+
+	virtual void setTexture(const unsigned char* texture_data, int image_width, int image_height, int channels) {
+
+		hasTexture = true;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
+		// set the texture wrapping parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		// set texture filtering parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		if (channels == 3) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image_width, image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, texture_data);
+		}
+		else if (channels == 4) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
+		}
+		
+	}
+
+	virtual void setTexture(const char* filename) {
+		hasTexture = true;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
+		// set the texture wrapping parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		// set texture filtering parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		int image_width, image_height, components_per_pixel;
+		unsigned char* img_data = stbi_load(filename, &image_width, &image_height, &components_per_pixel, 0);
+		if (!img_data)
+		{
+			std::cerr << "ERROR: Could not load texture image file '" << filename << "'.\n";
+			image_width = image_height = 0;
+		}
+
+		if (components_per_pixel == 3) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image_width, image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data);
+		}
+		else if (components_per_pixel == 4) {
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data);
+		}
+		else {
+			std::cerr << "ERROR: unknown channel num '" << filename << "channel:" << components_per_pixel <<"'.\n";
+			image_width = image_height = 0;
+		}
+			
+	}
+
+	virtual void updateTexture(const unsigned char* texture_data, int image_width, int image_height, int channels) {
+		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
+		if (channels == 3) {
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image_width, image_height, GL_RGB, GL_UNSIGNED_BYTE, texture_data);
+		}
+		else if (channels == 4) {
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image_width, image_height, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
+		}
+		else {
+			std::cerr << "ERROR: unknown channel num '" << channels << "'.\n";
+		}
+		
+	}
 };
 
 class ScreenSpaceObject : public Object {
@@ -52,31 +133,8 @@ class Rect : public ScreenSpaceObject {
 			glBindVertexArray(0); // 解绑VAO
 		}
 
-		void setShader(Shader *_shader) {
-			shader = _shader;
-		}
 
-		void setTexture(const unsigned char* texture_data, int image_width, int image_height) {
-			
-			hasTexture = true;
-			glGenTextures(1, &texture);
-			glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-			// set the texture wrapping parameters
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-			// set texture filtering parameters
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
-		}
-
-		void updateTexture(const unsigned char* texture_data, int image_width, int image_height) {
-			glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image_width, image_height, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
-		}
-
-
-		void Delete() {
+		void Delete() override {
 			glDeleteVertexArrays(1, &VAO);
 			glDeleteBuffers(1, &VBO);
 		};
@@ -99,6 +157,14 @@ public:
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 projection;
+	void prepareDraw(const RenderContext& context) override {
+		// 使用 context 中的视图和投影矩阵
+		view = context.viewMatrix;
+		projection = context.projectionMatrix;
+	}
+	void setModel(glm::mat4 _model) {
+		model = _model;
+	}
 };
 
 
@@ -169,41 +235,12 @@ public:
 		glBindVertexArray(0); // 解绑VAO
 	}
 
-	void setShader(Shader *_shader) {
-		shader = _shader;
-	}
-
-	void setModel(glm::mat4 _model) {
-		model = _model;
-	}
-
-	void setView(glm::mat4 _view) {
-		view = _view;
-	}
-
-	void setProjection(glm::mat4 _projection) {
-		projection = _projection;
-	}
 
 	void setColor(glm::vec4 _color) {
 		color = _color;
 	}
 
-	void setTexture(const unsigned char* texture_data, int image_width, int image_height) {
-
-		hasTexture = true;
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-		// set the texture wrapping parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		// set texture filtering parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image_width, image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, texture_data);
-	}
-
-	void Delete() {
+	void Delete() override {
 		glDeleteVertexArrays(1, &VAO);
 		glDeleteBuffers(1, &VBO);
 		glDeleteBuffers(1, &EBO);
@@ -226,6 +263,39 @@ public:
 		glBindVertexArray(0);
 	}
 };
+
+
+class TransparantSphere : public Sphere {
+
+public:
+	float transparancy = 0.5;
+	void setTransparancy(float _transparancy) {
+		if (_transparancy > 1.0) {
+			_transparancy = 1.0;
+		}
+		else if (_transparancy < 0.0) {
+			_transparancy = 0.0;
+		}
+		transparancy = _transparancy;
+	}
+
+	void draw() override {
+		shader->use();
+		if (hasTexture) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			shader->setInt("texture1", 0);
+		}
+		shader->setMat4("model", model);
+		shader->setMat4("view", view);
+		shader->setMat4("projection", projection);
+		shader->setVec4("color", color);
+		shader->setFloat("transparancy", transparancy);
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 10800, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
+};;
 
 
 #endif
