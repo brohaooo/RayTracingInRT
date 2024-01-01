@@ -10,6 +10,7 @@
 #include "bvh.h"
 #include "material.h"
 #include "sphere.h"
+#include "triangle.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -37,19 +38,33 @@ class scene {
         // lambertian: diffuse material
         auto diffuse_material = make_shared<lambertian>(glm::vec3(0.5, 0.5, 0.5));
         RT_objects.add(make_shared<sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
+
         // dielectric: transparent material, has reflection and refraction
         auto glass_material = make_shared<dielectric>(1.5);
-        RT_objects.add(make_shared<sphere>(glm::vec3(0, 1, 0), 1.0, glass_material));
+        RT_objects.add(make_shared<sphere>(glm::vec3(0, 1, -2.2), 1.0, glass_material));
+
         // diffuse material with texture
         shared_ptr<texture> earth_texture = make_shared<image_texture>("../../resource/earthmap.jpg");
         shared_ptr<material> earth_surface_material = make_shared<lambertian>(earth_texture);
         shared_ptr<sphere> earth = make_shared<sphere>(glm::vec3(0, 1, 2.2), 1.0, earth_surface_material);
         RT_objects.add(earth);
-        glm::quat q = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
+        //glm::quat q = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
         //earth->rotate(q);
+        
         // metal: reflective material
         auto metal_material = make_shared<metal>(glm::vec3(0.7, 0.6, 0.5), 0.0);
-        RT_objects.add(make_shared<sphere>(glm::vec3(0, 1, -2.2), 1.0, metal_material));
+        RT_objects.add(make_shared<sphere>(glm::vec3(0, 1, 0), 1.0, metal_material));
+
+        // diffuse light material
+        auto light_material = make_shared<diffuse_light>(glm::vec3(2, 2, 2));
+        RT_objects.add(make_shared<sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
+
+        // triangle
+        glm::vec3 v0(-0.5, 2, 0);
+        glm::vec3 v1(0.5, 2, 0);
+        glm::vec3 v2(0, 3, 0);
+        RT_objects.add(make_shared<triangle>(v0, v1, v2, diffuse_material));
+
 
         // construct BVH
         hittable_list BVH_RT_objects;
@@ -62,7 +77,7 @@ class scene {
         Sphere * sphereObject = new Sphere();
         sphereObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
         sphereObject->setColor(glm::vec4(0.3, 0.4, 0.8, 0.2));
-        sphereObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        sphereObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         
         // the ground sphere
         Sphere * sphereObject2 = new Sphere();
@@ -83,15 +98,28 @@ class scene {
         Sphere* sphereObject4 = new Sphere();
         sphereObject4->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
         sphereObject4->setColor(glm::vec4(0.7, 0.6, 0.5, 1.0));
-        sphereObject4->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        sphereObject4->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+
+        //diffuse light sphere
+        Sphere* sphereObject5 = new Sphere();
+        sphereObject5->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject5->setColor(glm::vec4(2, 2, 2, 1.0));
+        sphereObject5->setModel(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
 
 
 
-
+        Triangle* triangleObject = new Triangle(v0, v1, v2);
+        triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        triangleObject->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
+        triangleObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         
+        objects.push_back(triangleObject);
+
         objects.push_back(sphereObject2);
         objects.push_back(sphereObject3);
         objects.push_back(sphereObject4);
+        objects.push_back(sphereObject5);
+        
         // put transparent objects at the end of the list, so that they are rendered last
         objects.push_back(sphereObject);
 

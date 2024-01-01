@@ -295,7 +295,74 @@ public:
 		glDrawElements(GL_TRIANGLES, 10800, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
-};;
+};
+
+
+
+
+// a single triangle
+class Triangle : public MVPObject {
+public:
+glm::vec4 color;
+Triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2){
+	GLfloat vertices[] =
+	{
+		// Positions    // uv
+		v0.x, v0.y, v0.z,   0.0f, 1.0f, // left top
+		v1.x, v1.y, v1.z,   1.0f, 0.0f, // right bottom
+		v2.x, v2.y, v2.z,   0.0f, 0.0f, // left bottom
+	};
+
+		//GLfloat vertices[] =
+		//{
+		//	// Positions    // uv
+		//	
+		//	-0.5f, 2.0f, 0.0f,   0.0f, 1.0f, // left top
+		//	0.5f, 2.0f, 0.0f,   1.0f, 0.0f, // right bottom
+		//	0.0f, 3.0f, 0.0f,   0.0f, 0.0f, // left bottom
+		//	 
+		//};
+
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO); // 绑定VBO
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // 将顶点数据复制到缓冲中
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); // 设置顶点属性指针
+		glEnableVertexAttribArray(0); // 启用顶点属性
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); // 设置顶点属性指针
+		glEnableVertexAttribArray(1); // 启用顶点属性
+		glBindBuffer(GL_ARRAY_BUFFER, 0); // 解绑VBO
+		glBindVertexArray(0); // 解绑VAO
+	}
+
+	void setColor(glm::vec4 _color) {
+		color = _color;
+	}
+
+	void Delete() override {
+		glDeleteVertexArrays(1, &VAO);
+		glDeleteBuffers(1, &VBO);
+	};
+
+	void draw() override {
+		shader->use();
+		if (hasTexture) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			shader->setInt("texture1", 0);
+		}
+		shader->setMat4("model", model);
+		shader->setMat4("view", view);
+		shader->setMat4("projection", projection);
+		shader->setVec4("color", color);
+		glBindVertexArray(VAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindVertexArray(0);
+	}
+
+
+};
 
 
 #endif

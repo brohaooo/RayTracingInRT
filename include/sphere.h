@@ -19,22 +19,26 @@ class sphere : public hittable {
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+        // oc is the vector from the center of the sphere to the origin of the ray
         glm::vec3 oc = r.origin() - center;
+        // a is the squared length of the ray direction
         auto a = glm::length2(r.direction()) ;
+        // b is the dot product of oc and the ray direction
         auto half_b = dot(oc, r.direction());
         auto c = glm::length2(oc) - radius*radius;
 
         auto discriminant = half_b*half_b - a*c;
-        if (discriminant < 0)
+        if (discriminant < 0)// if the discriminant is negative, there is no real root, return false
             return false;
 
         // Find the nearest root that lies in the acceptable range.
         auto sqrtd = sqrt(discriminant);
+        // sloving the euation for t, there are two roots (t = (-b +- sqrt(discriminant))/a = root1, root2)
         auto root = (-half_b - sqrtd) / a;
         if (!ray_t.surrounds(root)) {
             root = (-half_b + sqrtd) / a;
             if (!ray_t.surrounds(root))
-                return false;
+                return false;// if both roots are not in the acceptable range, return false
         }
 
         rec.t = root;
@@ -63,6 +67,7 @@ class sphere : public hittable {
     AABB box;// the bounding box of the sphere
     glm::quat rotation;// the rotation of the sphere, used for texture mapping
     // the input p is a point on the UNIT sphere
+
     static void get_sphere_uv(const glm::vec3& p, float& u, float& v) {
 		auto theta = acos(-p.y);
 		auto phi = atan2(-p.z, -p.x) + pi;

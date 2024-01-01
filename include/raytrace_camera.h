@@ -228,9 +228,15 @@ class raytrace_camera {
         if (world.hit(r, interval(0.001, infinity), rec)) {
             ray scattered;
             glm::vec3 attenuation;
-            if (rec.mat->scatter(r, rec, attenuation, scattered))
-                return attenuation * ray_color(scattered, depth-1, world);
-            return glm::vec3(0,0,0);
+            // if it is a scatterable material
+            if (rec.mat->scatter(r, rec, attenuation, scattered)) {
+                return attenuation * ray_color(scattered, depth-1, world) + rec.mat->emitted(rec);
+            }
+            // else it is a light
+            else {
+                return rec.mat->emitted(rec);
+            }
+            // return glm::vec3(0,0,0);
         }
 
         glm::vec3 unit_direction = glm::normalize(r.direction());
