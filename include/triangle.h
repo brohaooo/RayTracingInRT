@@ -73,6 +73,7 @@ public:
 		if (!ray_t.surrounds(t)) { // 射线的长度在允许范围内	
 			return false;
 		}
+
 		// enable this to make the triangle single sided (like rasterization)
 		if (!(dot(r.direction(), face_normal) < 0)) {
 			return false;

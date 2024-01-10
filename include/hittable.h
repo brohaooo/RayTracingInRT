@@ -56,6 +56,8 @@ class hit_record {
     bool front_face;
 	float u, v;
 
+	glm::vec3 color;// for skybox only
+
     void set_face_normal(const ray& r, const glm::vec3& outward_normal) {
         // Sets the hit record normal vector.
         // NOTE: the parameter `outward_normal` is assumed to have unit length.

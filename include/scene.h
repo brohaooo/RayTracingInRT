@@ -33,6 +33,7 @@ class scene {
 
 
 	scene() {
+        // ------------------ ray tracing objects ------------------
 
         // different materials:
         // lambertian: diffuse material
@@ -70,6 +71,16 @@ class scene {
         hittable_list BVH_RT_objects;
         BVH_RT_objects = hittable_list(make_shared<BVH_node>(RT_objects));
         RT_objects = BVH_RT_objects;
+
+
+        // ------------------ openGL rasterization objects ------------------
+
+        // skybox
+        Skybox * skybox = new Skybox();
+        skybox->setShader(new Shader("../../shaders/skybox_shader.vs", "../../shaders/skybox_shader.fs"));
+		skybox->setTexture("../../resource/skybox");
+
+
 
 
         // create openGL objects for the above ray tracing objects
@@ -120,11 +131,15 @@ class scene {
         objects.push_back(sphereObject4);
         objects.push_back(sphereObject5);
         
+
+        // then render the skybox
+        objects.push_back(skybox);
+
         // put transparent objects at the end of the list, so that they are rendered last
         objects.push_back(sphereObject);
 
 
-
+        
 	}
 };
 

@@ -7,6 +7,7 @@
 #include "color.h"
 #include "hittable.h"
 #include "material.h"
+#include "skybox.h"
 
 #include "svpng.inc"
 
@@ -102,6 +103,10 @@ class raytrace_camera {
 
     // rgba
     void render_thread(const hittable& world, bool& finish_flag) {
+        // TODO: 把这坨skybox想办法弄到scene里创建，传参进来
+        RT_Skybox skybox("../../resource/skybox");
+
+
         unsigned char* p = rendered_image;
         for (int j = 0; j < image_height; ++j) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
@@ -109,7 +114,7 @@ class raytrace_camera {
                 glm::vec3 pixel_color(0, 0, 0);
                 for (int sample = 0; sample < samples_per_pixel; ++sample) {
                     ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, max_depth, world);
+                    pixel_color += ray_color(r, max_depth, world, &skybox);
                 }
                 pixel_color /= samples_per_pixel;
 
@@ -218,7 +223,7 @@ class raytrace_camera {
         return center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
-    glm::vec3 ray_color(const ray& r, int depth, const hittable& world) const {
+    glm::vec3 ray_color(const ray& r, int depth, const hittable& world, const RT_Skybox* skybox = nullptr ) const {
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if (depth <= 0)
             return glm::vec3(0,0,0);
@@ -230,7 +235,7 @@ class raytrace_camera {
             glm::vec3 attenuation;
             // if it is a scatterable material
             if (rec.mat->scatter(r, rec, attenuation, scattered)) {
-                return attenuation * ray_color(scattered, depth-1, world) + rec.mat->emitted(rec);
+                return attenuation * ray_color(scattered, depth-1, world, skybox) + rec.mat->emitted(rec);
             }
             // else it is a light
             else {
@@ -241,6 +246,13 @@ class raytrace_camera {
 
         glm::vec3 unit_direction = glm::normalize(r.direction());
         float a = 0.5*(unit_direction.y + 1.0);
+
+        // if there is a skybox, return the color of the skybox
+        if (skybox != nullptr) {
+			skybox->hit(r, interval(0.001, infinity), rec);
+            return rec.color;
+		}
+
         return float(1.0-a)* glm::vec3(1.0, 1.0, 1.0) + a* glm::vec3(0.5, 0.7, 1.0);
     }
 };
