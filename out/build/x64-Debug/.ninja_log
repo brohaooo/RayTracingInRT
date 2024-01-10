@@ -26,3 +26,5 @@
 738	778	7254016479786275	3rd_party/glfw-3.3.8/src/glfw3.lib	2ea75dbd62c7dc13
 30	847	7254016480370072	CMakeFiles/RayTracingInRT.dir/3rd_party/imgui/imgui.cpp.obj	a9bb66b03749077c
 988	1312	7265709660605705	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/bin/Debug/RayTracingInRT.exe	ef7e5f228c95f7c4
+4	21	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
+10	44	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
