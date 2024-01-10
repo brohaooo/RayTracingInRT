@@ -308,9 +308,9 @@ Triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2){
 	GLfloat vertices[] =
 	{
 		// Positions    // uv
-		v0.x, v0.y, v0.z,   0.0f, 1.0f, // left top
-		v1.x, v1.y, v1.z,   1.0f, 0.0f, // right bottom
-		v2.x, v2.y, v2.z,   0.0f, 0.0f, // left bottom
+		v0.x, v0.y, v0.z,   0.0f, 1.0f, // left bottom
+		v1.x, v1.y, v1.z,   1.0f, 1.0f, // right bottom
+		v2.x, v2.y, v2.z,   0.5f, 0.0f, // mid top
 	};
 
 		glGenVertexArrays(1, &VAO);

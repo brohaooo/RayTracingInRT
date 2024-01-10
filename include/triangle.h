@@ -21,9 +21,9 @@ public:
 		glm::vec3 max = glm::max(v0, glm::max(v1, v2));
 		box = AABB(min, max);
 		// default uv
-		uv0 = glm::vec2(0, 0);
-		uv1 = glm::vec2(1, 0);
-		uv2 = glm::vec2(0, 1);
+		uv0 = glm::vec2(0, 1);
+		uv1 = glm::vec2(1, 1);
+		uv2 = glm::vec2(0.5, 0);
 
 	}
 	triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec2 _uv0, glm::vec2 _uv1, glm::vec2 _uv2, shared_ptr<material> _material) : v0(v0), v1(v1), v2(v2), uv0(uv0), uv1(uv1), uv2(uv2), mat(_material) {
@@ -50,7 +50,7 @@ public:
         E2 = v2 - v0;
         S1 = glm::cross(D, E2);
         S1E1 = glm::dot(E1, S1);
-
+		//std::cout << "hit triangle" << std::endl;
         if (S1E1 > -EPSILON && S1E1 < EPSILON)
             return false;    // 射线与三角形平行
 
@@ -69,7 +69,7 @@ public:
 
         // 计算t以找出射线与三角形的交点
         t = inv_S1E1 * glm::dot(E2, S2);
-      
+		
 		if (!ray_t.surrounds(t)) { // 射线的长度在允许范围内	
 			return false;
 		}
@@ -84,8 +84,6 @@ public:
 		rec.mat = mat;
 		rec.set_face_normal(r, face_normal);
 		
-		
-
 		// 三角形的uv坐标
 		get_triangle_uv(b1, b2, rec.u, rec.v);
 
@@ -106,9 +104,9 @@ private:
 	glm::vec3 face_normal;// use to determine if ray is hitting the front or back of the triangle, it is a rule defined by convention
 	
 	void get_triangle_uv(float b1, float b2, float& u, float& v) const {
-		float b3 = 1 - b1 - b2;
-		u = b1 * uv0.x + b2 * uv1.x + b3 * uv2.x;
-		v = b1 * uv0.y + b2 * uv1.y + b3 * uv2.y;	
+		float b0 = 1 - b1 - b2;
+		u = b0 * uv0.x + b1 * uv1.x + b2 * uv2.x;
+		v = b0 * uv0.y + b1 * uv1.y + b2 * uv2.y;	
 	}
 
 };

@@ -34,6 +34,42 @@ class raytrace_camera {
 
     unsigned char * rendered_image = nullptr;
 
+
+    void non_blocking_render(const hittable& world, bool & finish_flag, const RT_Skybox* skybox = nullptr) {
+        initialize();
+        std::thread t(&raytrace_camera::render_thread, this, std::ref(world), std::ref(finish_flag), skybox);
+        t.detach();
+    }
+
+    // rgba
+    void render_thread(const hittable& world, bool& finish_flag, const RT_Skybox * skybox = nullptr) {
+        unsigned char* p = rendered_image;
+        for (int j = 0; j < image_height; ++j) {
+            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+            for (int i = 0; i < image_width; ++i) {
+                glm::vec3 pixel_color(0, 0, 0);
+                for (int sample = 0; sample < samples_per_pixel; ++sample) {
+                    ray r = get_ray(i, j);
+                    pixel_color += ray_color(r, max_depth, world, skybox);
+                }
+                pixel_color /= samples_per_pixel;
+
+                //pixel_color = linear_to_gamma(pixel_color);
+
+                static const interval intensity(0.000, 0.999);
+                *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.x));
+                *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.y));
+                *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.z));
+                *p++ = 255;
+
+            }
+        }
+        std::clog << "\rDone.                 \n";
+        finish_flag = true;
+    }
+  
+
+    //----------legacy code-----------------------------------------------------------
     void render_to_stream(const hittable& world) {
         initialize();
 
@@ -42,7 +78,7 @@ class raytrace_camera {
         for (int j = 0; j < image_height; ++j) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
             for (int i = 0; i < image_width; ++i) {
-                glm::vec3 pixel_color(0,0,0);
+                glm::vec3 pixel_color(0, 0, 0);
                 for (int sample = 0; sample < samples_per_pixel; ++sample) {
                     ray r = get_ray(i, j);
                     pixel_color += ray_color(r, max_depth, world);
@@ -56,10 +92,10 @@ class raytrace_camera {
         std::clog << "\rDone.                 \n";
     }
 
-    void render_to_png(const hittable& world, const char * save_path = "../../outputs/image.png") {
+    void render_to_png(const hittable& world, const char* save_path = "../../outputs/image.png") {
         initialize();
 
-        unsigned char * p = rendered_image;
+        unsigned char* p = rendered_image;
 
         std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
@@ -85,7 +121,7 @@ class raytrace_camera {
         }
         FILE* file_pointer;
         file_pointer = fopen(save_path, "wb");
-        
+
         if (file_pointer == NULL)
         {
             std::cout << "Error, Unable to open the file" << std::endl;
@@ -94,46 +130,7 @@ class raytrace_camera {
 
         std::clog << "\rDone.                 \n";
     }
-
-    void non_blocking_render(const hittable& world, bool & finish_flag) {
-        initialize();
-        std::thread t(&raytrace_camera::render_thread, this, std::ref(world), std::ref(finish_flag));
-        t.detach();
-    }
-
-    // rgba
-    void render_thread(const hittable& world, bool& finish_flag) {
-        // TODO: 把这坨skybox想办法弄到scene里创建，传参进来
-        RT_Skybox skybox("../../resource/skybox");
-
-
-        unsigned char* p = rendered_image;
-        for (int j = 0; j < image_height; ++j) {
-            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
-            for (int i = 0; i < image_width; ++i) {
-                glm::vec3 pixel_color(0, 0, 0);
-                for (int sample = 0; sample < samples_per_pixel; ++sample) {
-                    ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, max_depth, world, &skybox);
-                }
-                pixel_color /= samples_per_pixel;
-
-                //pixel_color = linear_to_gamma(pixel_color);
-
-                static const interval intensity(0.000, 0.999);
-                *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.x));
-                *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.y));
-                *p++ = static_cast<unsigned char>(256 * intensity.clamp(pixel_color.z));
-                *p++ = 255;
-
-            }
-        }
-        std::clog << "\rDone.                 \n";
-        finish_flag = true;
-    }
-  
-
-
+    //--------------------------------------------------------------------------------
 
   private:
     int    image_height;    // Rendered image height
@@ -249,8 +246,7 @@ class raytrace_camera {
 
         // if there is a skybox, return the color of the skybox
         if (skybox != nullptr) {
-			skybox->hit(r, interval(0.001, infinity), rec);
-            return rec.color;
+            return skybox->cube_sample_color(r);
 		}
 
         return float(1.0-a)* glm::vec3(1.0, 1.0, 1.0) + a* glm::vec3(0.5, 0.7, 1.0);

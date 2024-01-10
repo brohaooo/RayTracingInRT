@@ -29,6 +29,7 @@ public:
 
 		for (unsigned int i = 0; i < faces.size(); i++)
 		{
+			std::cout << "binding skybox texture" << std::endl;
 			data[i] = nullptr;
 			data[i] = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
 			if (data[i])
@@ -43,7 +44,56 @@ public:
 
 	};
 
-	bool hit(const ray& r, interval ray_t, hit_record& rec) const {
+	RT_Skybox() {
+		for (unsigned int i = 0; i < 6; i++)
+		{
+			data[i] = nullptr;
+		}
+	};
+
+	~RT_Skybox() {
+		for (unsigned int i = 0; i < 6; i++)
+		{
+			std::cout<<"freeing skybox texture"<<std::endl;
+			if (data[i]!= nullptr) {
+				stbi_image_free(data[i]);
+				data[i] = nullptr;
+			}
+				
+		}
+	};
+
+	void change_skybox(const char* filepath) {
+		// load skybox
+		std::vector<std::string> faces
+		{
+			std::string(filepath) + "/right.jpg",
+			std::string(filepath) + "/left.jpg",
+			std::string(filepath) + "/top.jpg",
+			std::string(filepath) + "/bottom.jpg",
+			std::string(filepath) + "/front.jpg",
+			std::string(filepath) + "/back.jpg"
+		};
+
+		for (unsigned int i = 0; i < faces.size(); i++)
+		{
+			stbi_image_free(data[i]);
+			data[i] = nullptr;
+			data[i] = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+			if (data[i])
+			{
+				continue;
+			}
+			else
+			{
+				std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+			}
+		}
+
+	};
+
+
+	glm::vec3 cube_sample_color(const ray& r) const {
 		// we only care about the direction of the ray, not the origin
 		glm::vec3 dir = r.direction();
 		dir = glm::normalize(dir);
@@ -91,9 +141,7 @@ public:
 			data[face][int(coords.x * width) * nrChannels + int(coords.y * height) * width * nrChannels + 1],
 			data[face][int(coords.x * width) * nrChannels + int(coords.y * height) * width * nrChannels + 2]);
 		// set the hit record
-		rec.color = color/256.0f;
-	
-		return true;
+		return color/256.0f;
 	};
 
 private:

@@ -28,11 +28,12 @@ class scene {
   public:
 	hittable_list RT_objects; // ray tracing objects
     std::vector<Object*> objects; // 存储场景中的物体 (not ray tracing, it is openGL rasterization objects)
+    RT_Skybox rt_skybox; // ray tracing skybox
     // TODO: add lights
     //std::vector<Light*> lights;   // 存储场景中的光源
 
 
-	scene() {
+	scene() : rt_skybox("../../resource/skybox") {
         // ------------------ ray tracing objects ------------------
 
         // different materials:
@@ -61,16 +62,20 @@ class scene {
         RT_objects.add(make_shared<sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
 
         // triangle
-        glm::vec3 v0(-0.5, 2, 0);
-        glm::vec3 v1(0.5, 2, 0);
-        glm::vec3 v2(0, 3, 0);
-        RT_objects.add(make_shared<triangle>(v0, v1, v2, diffuse_material));
+        glm::vec3 v0(-2, 2, 0);
+        glm::vec3 v1(2, 2, 0);
+        glm::vec3 v2(0, 4, 0);
+        //RT_objects.add(make_shared<triangle>(v0, v1, v2, diffuse_material));
+        RT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
+
 
 
         // construct BVH
         hittable_list BVH_RT_objects;
         BVH_RT_objects = hittable_list(make_shared<BVH_node>(RT_objects));
-        RT_objects = BVH_RT_objects;
+        //RT_objects = BVH_RT_objects;
+
+
 
 
         // ------------------ openGL rasterization objects ------------------
@@ -120,9 +125,10 @@ class scene {
 
 
         Triangle* triangleObject = new Triangle(v0, v1, v2);
-        triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/texture_shader.fs"));
         triangleObject->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
         triangleObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        triangleObject->setTexture("../../resource/earthmap.jpg");
         
         objects.push_back(triangleObject);
 

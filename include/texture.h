@@ -44,7 +44,8 @@ class image_texture : public texture
 
 		// Clamp input texture coordinates to [0,1] x [1,0]
 		u = interval(0, 1).clamp(u);
-		v = 1.0 - interval(0, 1).clamp(v);  // Flip V to image coordinates
+		// v = 1.0 - interval(0, 1).clamp(v);  // Flip V to image coordinates
+		v = interval(0, 1).clamp(v);  // don't flip V to image coordinates
 
 		int i = static_cast<int>(u * image_width);
 		int j = static_cast<int>(v * image_height);

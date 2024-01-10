@@ -109,7 +109,7 @@ class RT_renderer {
 
 
         // setup openGL camera
-        GL_camera = new Camera(glm::vec3(5, 2, 3));
+        GL_camera = new Camera(glm::vec3(0, 2, 5));
 
         
 
@@ -120,7 +120,7 @@ class RT_renderer {
         // modify camera infos before render loop starts
         GL_camera->MovementSpeed = 1.0f;
         //camera.Front = glm::vec3(-0.373257, -0.393942, -0.826684);
-        GL_camera->Front = glm::normalize(glm::vec3(0, 0, 0) - GL_camera->Position);
+        GL_camera->Front = glm::normalize(glm::vec3(0, 2, 0) - GL_camera->Position);
 
 
         // set up Dear ImGui context
@@ -311,7 +311,7 @@ class RT_renderer {
     }
 
     void ray_trace_render_thread(const scene& Scene) {
-		RayTrace_camera->non_blocking_render(Scene.RT_objects, rendering_finished_flag);
+		RayTrace_camera->non_blocking_render(Scene.RT_objects, rendering_finished_flag, &Scene.rt_skybox );
 
         unsigned char* rendered_output = RayTrace_camera->rendered_image;
         if (screenCanvas == nullptr) {
