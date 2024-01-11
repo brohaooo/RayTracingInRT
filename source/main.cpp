@@ -1,29 +1,5 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
-
-#include "utils.h"
-
-#include "raytrace_camera.h"
-#include "color.h"
-#include "hittable_list.h"
-#include "bvh.h"
-#include "material.h"
-#include "sphere.h"
-
-#include <shader.h>
-#include <camera.h>
-
-#include <iostream>
-#include <chrono>
-
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_opengl3.h"
-#include <list>
-
 #include "RT_renderer.h"
-
+#include "scene.h"
 #include "state.h"
 
 
