@@ -38,7 +38,7 @@ list(APPEND SOURCES
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${IMGUI_FILES})
 
-target_include_directories(${PROJECT_NAME} PRIVATE include)
+target_include_directories(${PROJECT_NAME} PRIVATE include include/raytrace_render)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
 

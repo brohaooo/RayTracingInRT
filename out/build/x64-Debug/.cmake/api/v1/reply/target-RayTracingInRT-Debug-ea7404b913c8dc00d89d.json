@@ -107,6 +107,10 @@
 					"path" : "C:/Users/86189/Desktop/RayTracing/RayTracingInRT/include"
 				},
 				{
+					"backtrace" : 5,
+					"path" : "C:/Users/86189/Desktop/RayTracing/RayTracingInRT/include/raytrace_render"
+				},
+				{
 					"backtrace" : 2,
 					"path" : "C:/Users/86189/Desktop/RayTracing/RayTracingInRT/3rd_party/glfw-3.3.8/include"
 				}
@@ -175,6 +179,10 @@
 				{
 					"backtrace" : 5,
 					"path" : "C:/Users/86189/Desktop/RayTracing/RayTracingInRT/include"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "C:/Users/86189/Desktop/RayTracing/RayTracingInRT/include/raytrace_render"
 				},
 				{
 					"backtrace" : 2,
