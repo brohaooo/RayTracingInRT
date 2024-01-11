@@ -29,7 +29,7 @@ public:
 
 		for (unsigned int i = 0; i < faces.size(); i++)
 		{
-			std::cout << "binding skybox texture" << std::endl;
+			//std::cout << "binding skybox texture" << std::endl;
 			data[i] = nullptr;
 			data[i] = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
 			if (data[i])
@@ -54,7 +54,7 @@ public:
 	~RT_Skybox() {
 		for (unsigned int i = 0; i < 6; i++)
 		{
-			std::cout<<"freeing skybox texture"<<std::endl;
+			//std::cout<<"freeing skybox texture"<<std::endl;
 			if (data[i]!= nullptr) {
 				stbi_image_free(data[i]);
 				data[i] = nullptr;

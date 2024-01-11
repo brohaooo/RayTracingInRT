@@ -62,18 +62,18 @@ class scene {
         RT_objects.add(make_shared<sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
 
         // triangle
-        glm::vec3 v0(-2, 2, 0);
-        glm::vec3 v1(2, 2, 0);
+        glm::vec3 v0(-1, 2, 0);
+        glm::vec3 v1(1, 2, 0);
         glm::vec3 v2(0, 4, 0);
-        //RT_objects.add(make_shared<triangle>(v0, v1, v2, diffuse_material));
-        RT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
+        RT_objects.add(make_shared<triangle>(v0, v1, v2, diffuse_material));
+        //RT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
 
 
 
         // construct BVH
         hittable_list BVH_RT_objects;
         BVH_RT_objects = hittable_list(make_shared<BVH_node>(RT_objects));
-        //RT_objects = BVH_RT_objects;
+        RT_objects = BVH_RT_objects;
 
 
 
@@ -125,10 +125,11 @@ class scene {
 
 
         Triangle* triangleObject = new Triangle(v0, v1, v2);
-        triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/texture_shader.fs"));
+        triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        //triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/texture_shader.fs"));
         triangleObject->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
         triangleObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
-        triangleObject->setTexture("../../resource/earthmap.jpg");
+        //triangleObject->setTexture("../../resource/earthmap.jpg");
         
         objects.push_back(triangleObject);
 

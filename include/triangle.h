@@ -19,6 +19,14 @@ public:
 		face_normal = glm::normalize(face_normal);
 		glm::vec3 min = glm::min(v0, glm::min(v1, v2));
 		glm::vec3 max = glm::max(v0, glm::max(v1, v2));
+		// 微调最小值和最大值，确保包围盒在所有轴上都有厚度
+		const float epsilon = 1e-4f; // 微调量
+		for (int i = 0; i < 3; ++i) {
+			if (min[i] == max[i]) {
+				min[i] -= epsilon;
+				max[i] += epsilon;
+			}
+		}
 		box = AABB(min, max);
 		// default uv
 		uv0 = glm::vec2(0, 1);
@@ -33,6 +41,14 @@ public:
 		face_normal = glm::normalize(face_normal);
 		glm::vec3 min = glm::min(v0, glm::min(v1, v2));
 		glm::vec3 max = glm::max(v0, glm::max(v1, v2));
+		// 微调最小值和最大值，确保包围盒在所有轴上都有厚度
+		const float epsilon = 1e-4f; // 微调量
+		for (int i = 0; i < 3; ++i) {
+			if (min[i] == max[i]) {
+				min[i] -= epsilon;
+				max[i] += epsilon;
+			}
+		}
 		box = AABB(min, max);
 		uv0 = _uv0;
 		uv1 = _uv1;
