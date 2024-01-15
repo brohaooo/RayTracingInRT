@@ -1,7 +1,7 @@
 # ninja log v5
 551	786	7266553909640765	3rd_party/glfw-3.3.8/examples/CMakeFiles/particles.dir/__/deps/glad_gl.c.obj	344fb21f55892da1
 1853	2382	7266553925387473	3rd_party/glfw-3.3.8/tests/CMakeFiles/gamma.dir/gamma.c.obj	30f681d23837c67a
-10	27	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
+13	31	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
 60	428	7254016476036152	3rd_party/glfw-3.3.8/src/CMakeFiles/glfw.dir/input.c.obj	f63d16f766155c67
 894	1243	7266553914296273	3rd_party/glfw-3.3.8/examples/CMakeFiles/splitview.dir/splitview.c.obj	327bf4e06eafc74c
 77	450	7254016476281419	3rd_party/glfw-3.3.8/src/CMakeFiles/glfw.dir/win32_joystick.c.obj	2632094ebaef011a
@@ -9,7 +9,7 @@
 2125	3617	7266553936944247	3rd_party/glfw-3.3.8/tests/cursor.exe	35b81683cc82fd48
 67	440	7254016476281419	3rd_party/glfw-3.3.8/src/CMakeFiles/glfw.dir/vulkan.c.obj	30ac8db209aa21ee
 431	707	7254016479090937	3rd_party/glfw-3.3.8/src/CMakeFiles/glfw.dir/win32_time.c.obj	1f35272da23d08dc
-29	981	7266556718178870	CMakeFiles/RayTracingInRT.dir/source/main.cpp.obj	7c41eacefde88672
+33	968	7266564195404821	CMakeFiles/RayTracingInRT.dir/source/main.cpp.obj	7c41eacefde88672
 794	1026	7266553912236134	3rd_party/glfw-3.3.8/examples/CMakeFiles/simple.dir/simple.c.obj	2e3f77d6ef9930a2
 64	445	7254016476281419	3rd_party/glfw-3.3.8/src/CMakeFiles/glfw.dir/monitor.c.obj	b65f31dfbdefd96e
 3285	3466	7266553936590726	3rd_party/glfw-3.3.8/tests/CMakeFiles/windows.dir/windows.c.obj	ea4eee2c18a8f140
@@ -35,7 +35,7 @@
 450	738	7254016479411685	3rd_party/glfw-3.3.8/src/CMakeFiles/glfw.dir/wgl_context.c.obj	ff59ea63ae9d8093
 738	778	7254016479786275	3rd_party/glfw-3.3.8/src/glfw3.lib	2ea75dbd62c7dc13
 40	1546	7266553916637348	CMakeFiles/RayTracingInRT.dir/3rd_party/imgui/imgui.cpp.obj	6d94b722571578c5
-981	1419	7266556720004702	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/bin/Debug/RayTracingInRT.exe	ef7e5f228c95f7c4
+968	1294	7266564196592837	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/bin/Debug/RayTracingInRT.exe	ef7e5f228c95f7c4
 78	158	7266553903575273	3rd_party/glfw-3.3.8/examples/CMakeFiles/gears.dir/glfw.rc.res	76511c7907cc1b16
 786	1111	7266553912972681	3rd_party/glfw-3.3.8/examples/CMakeFiles/sharing.dir/__/deps/glad_gl.c.obj	b1c993f8306ab914
 1026	1248	7266553914336366	3rd_party/glfw-3.3.8/tests/CMakeFiles/clipboard.dir/clipboard.c.obj	47d8c6e55e6e8345
@@ -136,12 +136,6 @@
 3378	4123	7266553942927751	3rd_party/glfw-3.3.8/tests/title.exe	54dc744fb0e6d231
 3611	4201	7266553943682876	3rd_party/glfw-3.3.8/tests/windows.exe	8aa0b6768e17f161
 4278	4361	0	CMakeFiles/install.util	b44f989d850ea72c
-15	33	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
-35	1285	7266563072486571	CMakeFiles/RayTracingInRT.dir/source/main.cpp.obj	7c41eacefde88672
-1286	1648	7266563073817632	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/bin/Debug/RayTracingInRT.exe	ef7e5f228c95f7c4
-16	34	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
-36	995	7266563533089570	CMakeFiles/RayTracingInRT.dir/source/main.cpp.obj	7c41eacefde88672
-995	1376	7266563534652383	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/bin/Debug/RayTracingInRT.exe	ef7e5f228c95f7c4
-13	31	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
-33	968	7266564195404821	CMakeFiles/RayTracingInRT.dir/source/main.cpp.obj	7c41eacefde88672
-968	1294	7266564196592837	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/bin/Debug/RayTracingInRT.exe	ef7e5f228c95f7c4
+18	37	0	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/CMakeFiles/cmake.verify_globs	bbb3aa57810247eb
+39	1417	7270586370607744	CMakeFiles/RayTracingInRT.dir/source/main.cpp.obj	7c41eacefde88672
+1417	2085	7270586373559584	C:/Users/86189/Desktop/RayTracing/RayTracingInRT/bin/Debug/RayTracingInRT.exe	ef7e5f228c95f7c4
