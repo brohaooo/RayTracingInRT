@@ -1,9 +1,0 @@
-libdir=C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/lib
-includedir=C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/include
-
-Name: RayTracingInRT
-Description: Import various well-known 3D model formats in an uniform manner.
-Version: 5.3.0
-Libs: -L${libdir} -lassimp
-Libs.private:  
-Cflags: -I${includedir}
