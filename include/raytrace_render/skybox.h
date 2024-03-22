@@ -135,11 +135,19 @@ public:
 		}
 		coords *= 0.5f;
 		coords += 0.5f;
+		// avoid out of bounds
+		int target_pixel = int(coords.x * width) * nrChannels + int(coords.y * height) * width * nrChannels;
+		if (target_pixel < 0) {
+			target_pixel = 0;
+		}
+		if (target_pixel >= width * height * nrChannels) {
+			target_pixel = (width * height-1) * nrChannels;
+		}
 	
 		// get the color from the texture
-		glm::vec3 color = glm::vec3(data[face][int(coords.x * width) * nrChannels + int(coords.y * height) * width * nrChannels + 0],
-			data[face][int(coords.x * width) * nrChannels + int(coords.y * height) * width * nrChannels + 1],
-			data[face][int(coords.x * width) * nrChannels + int(coords.y * height) * width * nrChannels + 2]);
+		glm::vec3 color = glm::vec3(data[face][target_pixel + 0],
+			data[face][target_pixel + 1],
+			data[face][target_pixel + 2]);
 		// set the hit record
 		return color/256.0f;
 	};

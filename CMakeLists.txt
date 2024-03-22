@@ -8,6 +8,7 @@ project(RayTracingInRT)
 
 # Compile dependencies
 add_subdirectory(./3rd_party/glfw-3.3.8)
+add_subdirectory(./3rd_party/assimp)
 
 # GLM
 add_compile_definitions(GLM_LANG_STL11_FORCED) # fix GLM compile error in clang++
@@ -40,7 +41,7 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${IMGUI_FILES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE include include/raytrace_render)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
+target_link_libraries(${PROJECT_NAME} PUBLIC glfw assimp)
 
 
 

@@ -5,6 +5,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <shader.h>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 // 渲染上下文，包含渲染所需的所有数据
 struct RenderContext {
@@ -12,6 +15,7 @@ public:
 	glm::mat4 viewMatrix;
 	glm::mat4 projectionMatrix;
 	// 其他可能的渲染数据...
+	glm::vec3 cameraPos;
 };
 
 
@@ -158,9 +162,7 @@ public:
 	glm::mat4 view;
 	glm::mat4 projection;
 	void prepareDraw(const RenderContext& context) override {
-		// 使用 context 中的视图和投影矩阵
-		view = context.viewMatrix;
-		projection = context.projectionMatrix;
+		// not used currently, we use ubo to pass vp matrix
 	}
 	void setModel(glm::mat4 _model) {
 		model = _model;
@@ -482,6 +484,285 @@ private:
 
 
 };
+
+// mesh object, loaded from file via assimp
+class Mesh : public MVPObject {
+	public:
+	// mesh data
+	std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> normals;
+	std::vector<glm::vec2> uvs;
+	std::vector<GLuint> indices;
+
+	// tmp implementation:
+	glm::mat4 rotation = glm::mat4(1.0f);
+
+	// render data
+	// same as any other object, we have a VAO, VBO
+	// the only difference is that we have a EBO now
+	GLuint EBO;
+	
+	
+
+	// constructor
+	Mesh(aiMesh* mesh)
+	{
+		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		{
+			glm::vec3 position;
+			position.x = mesh->mVertices[i].x;
+			position.y = mesh->mVertices[i].y;
+			position.z = mesh->mVertices[i].z;
+			positions.push_back(position);	
+		}
+		if (mesh->mNormals) 
+		{
+			for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+			{
+				glm::vec3 normal;
+				normal.x = mesh->mNormals[i].x;
+				normal.y = mesh->mNormals[i].y;
+				normal.z = mesh->mNormals[i].z;
+				normals.push_back(normal);
+			}
+		}
+		if (mesh->mTextureCoords) 
+		{
+			for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+			{
+				glm::vec2 uv;
+				uv.x = mesh->mTextureCoords[0][i].x;
+				uv.y = mesh->mTextureCoords[0][i].y;
+				uvs.push_back(uv);
+			}
+		}
+		for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+		{
+			aiFace face = mesh->mFaces[i];
+			for (unsigned int j = 0; j < face.mNumIndices; j++)
+				indices.push_back(face.mIndices[j]);
+		}
+
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glGenBuffers(1, &EBO);
+		// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+		glBindVertexArray(VAO);
+
+		unsigned int vertex_size = 0;
+		// position attribute
+		vertex_size += sizeof(glm::vec3);
+		// normal attribute
+		if (normals.size() == 0) {
+			generateSmoothNormals();
+			//generateNormal();	
+		}
+		vertex_size += sizeof(glm::vec3);
+		if (uvs.size() > 0) {
+			vertex_size += sizeof(glm::vec2);
+		}
+
+		// combine all the data into a single array as interleaved array, then upload it into the VBO
+		std::vector<float> interleaved_data;
+		for (unsigned int i = 0; i < positions.size(); i++) {
+			interleaved_data.push_back(positions[i].x);
+			interleaved_data.push_back(positions[i].y);
+			interleaved_data.push_back(positions[i].z);
+			interleaved_data.push_back(normals[i].x);
+			interleaved_data.push_back(normals[i].y);
+			interleaved_data.push_back(normals[i].z);
+			if (uvs.size() > 0) {
+				interleaved_data.push_back(uvs[i].x);
+				interleaved_data.push_back(uvs[i].y);
+			}
+		}
+		
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, interleaved_data.size() * sizeof(float), &interleaved_data[0], GL_STATIC_DRAW);
+		
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), &indices[0], GL_STATIC_DRAW);
+
+		// we specify the layout of the vertex data: position, normal(force exist by generating), uv(might not exist)
+		// position attribute
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vertex_size, (void*)0);
+		glEnableVertexAttribArray(0);
+		// normal attribute
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vertex_size, (void*)sizeof(glm::vec3));
+		glEnableVertexAttribArray(1);
+		// uv attribute
+		if (uvs.size() > 0) {		
+			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, vertex_size, (void*)(2*sizeof(glm::vec3)));
+			glEnableVertexAttribArray(2);		
+		}
+	
+		glBindVertexArray(0);
+	}
+
+	// only load the first mesh in the file, not recommended, use Model class instead
+	Mesh(const char* filename) {
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
+		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+			std::cerr << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+			return;
+		}
+		aiMesh* mesh = scene->mMeshes[0];
+
+		*this = Mesh(mesh);
+	}
+
+
+
+
+
+	// if we don't have normal, we can generate it
+	void generateNormal() {
+		if (normals.size() == 0) {
+			normals.resize(positions.size(), glm::vec3(0.0f, 0.0f, 0.0f));
+			for (unsigned int i = 0; i < indices.size(); i += 3) {
+				glm::vec3 v0 = positions[indices[i]];
+				glm::vec3 v1 = positions[indices[i + 1]];
+				glm::vec3 v2 = positions[indices[i + 2]];
+				glm::vec3 normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+				normals[indices[i]] = normal;
+				normals[indices[i + 1]] = normal;
+				normals[indices[i + 2]] = normal;
+				
+			}
+		}
+	}
+	// better way to generate normal, smooth normal
+	void generateSmoothNormals() {
+		normals.resize(positions.size(), glm::vec3(0.0f, 0.0f, 0.0f));
+
+		// add all the normals of the faces to the vertices
+		for (unsigned int i = 0; i < indices.size(); i += 3) {
+			glm::vec3 v0 = positions[indices[i]];
+			glm::vec3 v1 = positions[indices[i + 1]];
+			glm::vec3 v2 = positions[indices[i + 2]];
+
+			glm::vec3 normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+
+			normals[indices[i]] += normal;
+			normals[indices[i + 1]] += normal;
+			normals[indices[i + 2]] += normal;
+		}
+
+		// then normalize the normals
+		for (glm::vec3& normal : normals) {
+			normal = glm::normalize(normal);
+		}
+	}
+
+
+	void prepareDraw(const RenderContext& context) override {
+		
+	}
+
+	// render the mesh
+	void draw() override
+	{
+		shader->use();
+		if (hasTexture) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			shader->setInt("texture1", 0);
+		}
+		shader->setMat4("model", model);
+		shader->setMat4("rotation", rotation); // tmp implementation
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+		
+	}
+
+	void Delete() override
+	{
+		glDeleteVertexArrays(1, &VAO);
+		glDeleteBuffers(1, &VBO);
+		glDeleteBuffers(1, &EBO);
+	}
+
+
+
+};
+
+
+
+// model object, contains multiple meshes and textures
+class Model : public MVPObject {
+	public:
+	std::vector<Mesh*> meshes;
+	Model(std::string const& path)
+	{
+		Assimp::Importer importer;
+		// noticing that we use aiProcessPreset_TargetRealtime_Quality, which is a combination of multiple flags
+		// it will generate smooth normals, flip uv, and triangulate the mesh
+		const aiScene* scene = importer.ReadFile(path, aiProcessPreset_TargetRealtime_Quality | aiProcess_PreTransformVertices);
+		//const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals);
+
+		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+			std::cerr << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+			return;
+		}
+		for (unsigned int i = 0; i < scene->mNumMeshes; i++)
+		{
+			aiMesh* mesh = scene->mMeshes[i];
+			Mesh *m = new Mesh(mesh);
+			meshes.push_back(m);
+		}
+
+		std::cout<<"model loaded, mesh count: "<< meshes.size() <<std::endl;
+		
+	}
+
+	void draw() override
+	{
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->draw();
+	}
+
+	void Delete() override
+	{
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->Delete();
+		// then delete the meshes
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			delete meshes[i];
+	}
+
+	void setTexture(const char* filename) override{
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->setTexture(filename);
+	}
+
+	void setShader(Shader* _shader) override{
+		shader = _shader;
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->setShader(_shader);
+	}
+
+	void setModel(glm::mat4 _model) {
+		this->model = _model;
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->setModel(_model);
+	}
+
+	void prepareDraw(const RenderContext& context) override {
+		
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->prepareDraw(context);
+	}
+
+	void updateRotation(glm::mat4 _rotation) {
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->rotation = _rotation;
+	}
+
+
+};
+
 
 
 #endif

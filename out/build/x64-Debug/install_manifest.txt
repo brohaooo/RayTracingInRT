@@ -1,8 +1,0 @@
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/lib/glfw3.lib
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/include/GLFW/glfw3.h
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/include/GLFW/glfw3native.h
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/lib/cmake/glfw3/glfw3Config.cmake
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/lib/cmake/glfw3/glfw3ConfigVersion.cmake
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/lib/cmake/glfw3/glfw3Targets.cmake
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/lib/cmake/glfw3/glfw3Targets-debug.cmake
-C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/install/x64-Debug/lib/pkgconfig/glfw3.pc

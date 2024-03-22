@@ -1,10 +1,13 @@
-#version 330 core
+#version 430 core
 
 layout (location = 0) in vec3 aPos;
 
 uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+layout(std140, binding = 0) uniform RenderInfo{
+    mat4 view;
+    mat4 projection;
+    vec3 cameraPos;
+};
 
 void main()
 {

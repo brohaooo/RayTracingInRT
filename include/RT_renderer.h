@@ -21,6 +21,31 @@
 #include "scene.h"
 
 
+struct PBR_parameters {
+	float eta = 0.5f;
+	float m = 0.5f;
+    float rotationAngle = 0.0f;
+    int render_mode = 0;// 0: full lighting, 1: fresnel only, 2: distribution only, 3: geometric only
+    glm::vec3 ka_color = glm::vec3(0.1f, 0.1f, 0.1f);
+    glm::vec3 kd_color = glm::vec3(0.5f, 0.5f, 0.5f);
+    glm::vec3 ks_color = glm::vec3(0.5f, 0.5f, 0.5f);
+};
+
+struct UBORenderInfo {
+    glm::mat4 view;
+    glm::mat4 projection;
+    glm::vec3 cameraPos;
+    float eta; // it helps cameraPos padded to 16 bytes
+    float m;
+    int render_mode;
+    float padding1[2];
+    glm::vec3 ka_color;
+    float padding2;
+    glm::vec3 kd_color;
+    float padding3;
+    glm::vec3 ks_color;
+    float padding4;
+};
 
 
 class RT_renderer {
@@ -30,10 +55,13 @@ class RT_renderer {
     Rect * screenCanvas = nullptr;
 	raytrace_camera * RayTrace_camera = nullptr;
 	Camera * GL_camera = nullptr;
-	int image_width = 800;
-	int image_height = 600;
+	int image_width = 1920;
+	int image_height = 1080;
 
+    PBR_parameters pbr_params;
 
+    GLuint global_ubo;
+    UBORenderInfo uploadData;
 
 
 	RT_renderer() {
@@ -132,6 +160,8 @@ class RT_renderer {
 
         Initialize_RayTrace_camera();
 
+        InitializeUbo();
+
 	}
 
     void ImGui_initialize() {
@@ -170,6 +200,39 @@ class RT_renderer {
         RayTrace_camera->focus_dist = 10;
     }
 
+    void InitializeUbo() {
+        
+        glGenBuffers(1, &global_ubo);
+        glBindBuffer(GL_UNIFORM_BUFFER, global_ubo);
+
+        uploadData.cameraPos = GL_camera->Position;
+        uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f);
+        uploadData.view = GL_camera->GetViewMatrix();
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(uploadData), &uploadData, GL_STATIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        GLuint bindingPoint = 0;
+        glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, global_ubo);
+    }
+
+    void uploadUbo() {
+        if (global_ubo == 0) {
+            glGenBuffers(1, &global_ubo);
+            glBindBuffer(GL_UNIFORM_BUFFER, global_ubo);
+        }
+        else {
+            glBindBuffer(GL_UNIFORM_BUFFER, global_ubo);
+        }
+        glBufferData(GL_UNIFORM_BUFFER, sizeof(uploadData), &uploadData, GL_STATIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    }
+
+    void updateUboData() {
+		uploadData.cameraPos = GL_camera->Position;
+		uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f);
+		uploadData.view = GL_camera->GetViewMatrix();
+	}
+
 
 
     void update_RayTrace_camera() {
@@ -197,7 +260,9 @@ class RT_renderer {
 		glfwSwapBuffers(window);
 	}   
 
-	void render(std::vector<Object*> objects) {
+	void render(scene & _scene, bool render_screenCanvas = false) {
+        std::vector<Object*> & objects = _scene.objects;
+        std::vector<Model*>& rotate_models = _scene.rotate_models;
 		// render loop
 		// -----------
         
@@ -207,13 +272,52 @@ class RT_renderer {
 
         // render part is here
         // ------
+        
+        
+        // if CPU-raytracing is on, we do this 
+        if (render_screenCanvas && screenCanvas != nullptr) {
+            // for a comparison visualization
+            // we preserve the color buffer, but clear the depth buffer, because we will draw the screenCanvas on top of the openGL objects
+            glClear(GL_DEPTH_BUFFER_BIT); 
+            
+            unsigned char* rendered_output = RayTrace_camera->rendered_image;
+            screenCanvas->updateTexture(rendered_output, image_width, image_height, 4);
+
+
+            screenCanvas->draw();
+
+            return; // if ray tracing is enabled, then the screenCanvas will be updated in the ray tracing thread
+            // but we don't need to render the openGL objects in this case, so we return here
+        }
+        
+        
+        
         // clear screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        
 
-        RenderContext context;
-        context.viewMatrix = GL_camera->GetViewMatrix();
-        context.projectionMatrix = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f);
+
+        RenderContext context;// not used for now, we use UBO to pass the camera info
+        
+
+        for (auto object : rotate_models) {
+            //glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+            object->updateRotation(glm::rotate(glm::mat4(1.0f), glm::radians(pbr_params.rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)));
+		}
+
+        // update the UBO data
+        updateUboData();
+        uploadData.eta = pbr_params.eta;
+        uploadData.m = pbr_params.m;
+        uploadData.render_mode = pbr_params.render_mode;
+        uploadData.ka_color = pbr_params.ka_color;
+        uploadData.kd_color = pbr_params.kd_color;
+        uploadData.ks_color = pbr_params.ks_color;
+
+        // upload the UBO data
+        uploadUbo();
+
         // render the scene using openGL rasterization pipeline
         for (auto object : objects) {
             object->prepareDraw(context);
@@ -221,14 +325,7 @@ class RT_renderer {
 		}
 
 
-        if (screenCanvas != nullptr) {
-
-            unsigned char* rendered_output = RayTrace_camera->rendered_image;
-            screenCanvas->updateTexture(rendered_output, image_width, image_height,4);
-
-
-            screenCanvas->draw();
-        }
+        
 
 
 
@@ -292,14 +389,31 @@ class RT_renderer {
 			ImGui::Text("CAM DIR: %.3f %.3f %.3f", GL_camera->Front[0], GL_camera->Front[1], GL_camera->Front[2]);
 			ImGui::Text("CAM FOV: %.3f", GL_camera->Zoom);
 		}
+        ImGui::End();
+        if (ImGui::Begin("CONTROL PANEL", nullptr)) {
+
+            ImGui::SliderFloat("Rotation", &pbr_params.rotationAngle, 0.0f, 360.0f);
+            ImGui::SliderFloat("eta", &pbr_params.eta, 0.0f, 1.0f);
+            ImGui::SliderFloat("m", &pbr_params.m, 0.0f, 1.0f);
+            // radio buttons
+            ImGui::RadioButton("Full Lighting", &pbr_params.render_mode, 0); ImGui::SameLine();
+            ImGui::RadioButton("Fresnel", &pbr_params.render_mode, 1); ImGui::SameLine();
+            ImGui::RadioButton("Distribution", &pbr_params.render_mode, 2); ImGui::SameLine();
+            ImGui::RadioButton("Geometric", &pbr_params.render_mode, 3);
+            // color edit picker
+            ImGui::ColorEdit3("ka", (float*)&pbr_params.ka_color);
+            ImGui::ColorEdit3("kd", (float*)&pbr_params.kd_color);
+            ImGui::ColorEdit3("ks", (float*)&pbr_params.ks_color);
+            
+        }
 		ImGui::End();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		// --------------------------------
 	}   
 
-    void ray_trace_render(const scene& Scene) {
-        hittable_list RT_objects = Scene.RT_objects;
+    void CPURT_render(const scene& Scene) {
+        hittable_list RT_objects = Scene.CPURT_objects;
 		RayTrace_camera->render_to_png(RT_objects);
 
         unsigned char* rendered_output = RayTrace_camera->rendered_image;
@@ -311,8 +425,8 @@ class RT_renderer {
 
     }
 
-    void ray_trace_render_thread(const scene& Scene) {
-		RayTrace_camera->non_blocking_render(Scene.RT_objects, rendering_finished_flag, &Scene.rt_skybox );
+    void CPURT_render_thread(const scene& Scene) {
+		RayTrace_camera->non_blocking_render(Scene.CPURT_objects, rendering_finished_flag, &Scene.CPURT_skybox);
 
         unsigned char* rendered_output = RayTrace_camera->rendered_image;
         if (screenCanvas == nullptr) {
@@ -505,6 +619,17 @@ void RT_renderer::processInput(GLFWwindow* window)
 		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
 			GL_camera->ProcessKeyboard(DOWN, deltaTime);
 	}
+
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+			enable_camera_movement = false;
+            enable_mouse_input = false;
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	}
+    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+        enable_camera_movement = true;
+        enable_mouse_input = true;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
 
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
         RT_render_request_flag = true;

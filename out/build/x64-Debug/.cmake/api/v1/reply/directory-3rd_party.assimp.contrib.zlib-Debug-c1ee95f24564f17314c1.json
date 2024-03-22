@@ -1,0 +1,45 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"INSTALL"
+		],
+		"files" : 
+		[
+			"3rd_party/assimp/contrib/zlib/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 201,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "lib",
+			"paths" : 
+			[
+				"3rd_party/assimp/contrib/zlib/zlibstaticd.lib"
+			],
+			"targetId" : "zlibstatic::@a08125e440dae4639af3",
+			"targetIndex" : 36,
+			"type" : "target"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "3rd_party/assimp/contrib/zlib",
+		"source" : "3rd_party/assimp/contrib/zlib"
+	}
+}

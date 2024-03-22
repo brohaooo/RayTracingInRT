@@ -33,6 +33,6 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/3rd_party/glfw-3.3.8/src/glfw3.lib")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/3rd_party/glfw-3.3.8/src/glfw3d.lib")
 endif()
 

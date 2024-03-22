@@ -9,7 +9,7 @@ int main() {
     
     
     RT_renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
-    scene Scene; // create scene object, which contains all the objects in the scene
+    scene Scene(1); // create scene object, which contains all the objects in the scene
     std::cout<<"scene created"<<std::endl;
     RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
     state_machine.print_state(); // initial state is idle
@@ -30,6 +30,8 @@ int main() {
 			std::cout << "state changed from " << last_state << " to " << current_state << std::endl;
 		}
 
+
+        // things to do when state changes
         if (current_state == "idle") {
             if (last_state == "displaying") {
             	renderer.reset_rendering();
@@ -40,10 +42,19 @@ int main() {
 		}
         else if (current_state == "ray_tracing") {
             if (last_state == "idle") {
+                // before starting ray tracing, render the scene using openGL rasterization pipeline (for a quick preview)
+                // due to the double buffering, we need to render the scene twice to display the result (otherwise two frames will be recursively displayed)
+                renderer.process_input(); // update camera position and direction to newest values
+                renderer.update_RayTrace_camera(); // also update ray-tracing camera's position and direction to match the display camera's
+                renderer.render(Scene, false);
+                renderer.swap_buffers();
+                renderer.render(Scene, false);
+                // disable input and camera movement for ray tracing
                 renderer.set_mouse_input(false);
                 renderer.set_keyboard_input(false);
-                renderer.set_camera_movement(false);
-				renderer.ray_trace_render_thread(Scene);// if state changed from idle to ray tracing, start ray tracing thread
+                renderer.set_camera_movement(false);    
+                // start ray tracing thread
+				renderer.CPURT_render_thread(Scene);
                 // such thread will write the output image to an array, and then the main thread will copy the array to the texture
                 // in renderer.render() function's updateTexture() call
 			}
@@ -63,7 +74,8 @@ int main() {
         // common tasks for all states
         renderer.process_input(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
         renderer.update_RayTrace_camera(); // update ray-tracing camera's position and direction to match the display camera's
-        renderer.render(Scene.objects); // render the scene using openGL rasterization pipeline
+        bool CPU_rayTrace_display = current_state == "ray_tracing" || current_state == "displaying";
+        renderer.render(Scene, CPU_rayTrace_display); // render the scene using openGL rasterization pipeline
 
 
 

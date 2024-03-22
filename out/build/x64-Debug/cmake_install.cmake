@@ -37,6 +37,11 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/3rd_party/glfw-3.3.8/cmake_install.cmake")
 endif()
 
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("C:/Users/86189/Desktop/RayTracing/RayTracingInRT/out/build/x64-Debug/3rd_party/assimp/cmake_install.cmake")
+endif()
+
 if(CMAKE_INSTALL_COMPONENT)
   set(CMAKE_INSTALL_MANIFEST "install_manifest_${CMAKE_INSTALL_COMPONENT}.txt")
 else()
