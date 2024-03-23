@@ -5,7 +5,7 @@ in vec3 Normal;
 in vec3 FragPos; 
 
 // light properties
-const vec3 lightPos = vec3(4,2,0); // a point light
+const vec3 lightPos = vec3(2,1,0); // a point light
 const vec3 lightColor = vec3(1.8,1.8,1.8); 
 const vec3 ambientLightColor = vec3(0.8,0.8,0.8); // environment light, usually set to sky color
 

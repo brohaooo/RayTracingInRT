@@ -35,7 +35,26 @@ class scene {
     
     // TODO: add lights
     //std::vector<Light*> lights;   // 存储场景中的光源
-    scene(int initNum) : CPURT_skybox("../../resource/skybox") {// no ray tracing objects this case, only openGL rasterization objects
+    scene(int initNum) : CPURT_skybox("../../resource/skybox") {
+        // ------------------ ray tracing objects ------------------
+        // ground sphere in cpu ray tracing
+        auto diffuse_material = make_shared<lambertian>(glm::vec3(0.5, 0.5, 0.5));
+        auto glass_material = make_shared<dielectric>(1.5);
+        CPURT_objects.add(make_shared<sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
+        auto light_material = make_shared<diffuse_light>(glm::vec3(4, 4, 4));
+        CPURT_objects.add(make_shared<sphere>(glm::vec3(2, 1, 0), 0.8, light_material));
+
+        // a mesh teapot
+        std::vector<shared_ptr<hittable>> mesh_vec = load_mesh("../../resource/teapot.obj", diffuse_material);
+        mesh  teapot_mesh(mesh_vec, glass_material,glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+        CPURT_objects.add(make_shared<mesh>(teapot_mesh));
+        // construct BVH
+        hittable_list BVH_RT_objects;
+        BVH_RT_objects = hittable_list(make_shared<BVH_node>(CPURT_objects));
+        CPURT_objects = BVH_RT_objects;
+
+
+
         // ------------------ openGL rasterization objects ------------------
 
         // skybox
@@ -44,15 +63,19 @@ class scene {
         skybox->setTexture("../../resource/skybox");
 
 
-
-
-        
-
         // the ground sphere
+        Sphere* sphereObject1 = new Sphere();
+        sphereObject1->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject1->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
+        sphereObject1->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
+
+        objects.push_back(sphereObject1);
+
+        // light sphere (for light source visualization)
         Sphere* sphereObject2 = new Sphere();
         sphereObject2->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
-        sphereObject2->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
-        sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
+        sphereObject2->setColor(glm::vec4(2, 2, 2, 1.0));
+        sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(2, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.8, 0.8, 0.8)));
 
         objects.push_back(sphereObject2);
 
@@ -111,7 +134,7 @@ class scene {
         glm::vec3 v1(1, 2, 0);
         glm::vec3 v2(0, 4, 0);
         CPURT_objects.add(make_shared<triangle>(v0, v1, v2, diffuse_material));
-        //RT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
+        //CPURT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
 
 
 

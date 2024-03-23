@@ -55,8 +55,8 @@ class RT_renderer {
     Rect * screenCanvas = nullptr;
 	raytrace_camera * RayTrace_camera = nullptr;
 	Camera * GL_camera = nullptr;
-	int image_width = 1920;
-	int image_height = 1080;
+	int image_width = 800;
+	int image_height = 600;
 
     PBR_parameters pbr_params;
 
