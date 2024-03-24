@@ -9,19 +9,20 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-// 渲染上下文，包含渲染所需的所有数据
+// render context, contains view matrix, projection matrix, camera position, etc.
+// not used currently, we use ubo to pass vp matrix
 struct RenderContext {
 public:
 	glm::mat4 viewMatrix;
 	glm::mat4 projectionMatrix;
-	// 其他可能的渲染数据...
 	glm::vec3 cameraPos;
+	// other things like light position, etc.
 };
 
 
 class Object {
 public:
-	// 物体的数据
+	// render related opengl objects references
 	GLuint VAO;
 	GLuint VBO;
 	GLuint texture;
@@ -29,11 +30,12 @@ public:
 	bool hasTexture = false;
 
 
-	// 绘制方法
+	// draw function, to be implemented by derived classes
 	virtual void draw() = 0;
-	// 准备绘制，比如MVP类模型需要在绘制前计算MVP矩阵
+	// do before draw, to be implemented by derived classes
+	// since we use ubo to pass vp matrix, this function is not useful currently
 	virtual void prepareDraw(const RenderContext& context) {
-		// 默认实现或空实现
+		// default implementation: do nothing
 	}
 	virtual void setShader(Shader* _shader) {
 		shader = _shader;
@@ -148,12 +150,12 @@ class Rect : public ScreenSpaceObject {
 			glGenVertexArrays(1, &VAO);
 			glGenBuffers(1, &VBO);
 			glBindVertexArray(VAO);
-			glBindBuffer(GL_ARRAY_BUFFER, VBO); // 绑定VBO
-			glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // 将顶点数据复制到缓冲中
-			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0); // 设置顶点属性指针
-			glEnableVertexAttribArray(0); // 启用顶点属性
-			glBindBuffer(GL_ARRAY_BUFFER, 0); // 解绑VBO
-			glBindVertexArray(0); // 解绑VAO
+			glBindBuffer(GL_ARRAY_BUFFER, VBO); // bind VBO
+			glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // copy the vertex data to VBO
+			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0); // set the vertex attribute pointers
+			glEnableVertexAttribArray(0); // activate the vertex attribute
+			glBindBuffer(GL_ARRAY_BUFFER, 0); // unbund VBO
+			glBindVertexArray(0); // unbund VAO
 		}
 
 
@@ -241,19 +243,19 @@ public:
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO); // 绑定VBO
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * sphereVertices.size(), sphereVertices.data(), GL_STATIC_DRAW); // 将顶点数据复制到缓冲中
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); // 设置顶点属性指针: 位置属性
-		glEnableVertexAttribArray(0); // 启用顶点属性
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); // 设置顶点属性指针: 纹理坐标属性
-		glEnableVertexAttribArray(1); // 启用顶点属性
-		glBindBuffer(GL_ARRAY_BUFFER, 0); // 解绑VBO
+		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * sphereVertices.size(), sphereVertices.data(), GL_STATIC_DRAW); 
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); // set vertex attribute pointers: position
+		glEnableVertexAttribArray(0); // activate vertex attribute
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); // set vertex attribute pointers: uv
+		glEnableVertexAttribArray(1); // activate vertex attribute
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // 绑定EBO
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * sphereIndices.size(), sphereIndices.data(), GL_STATIC_DRAW); // 将顶点数据复制到缓冲中
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // bind EBO
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * sphereIndices.size(), sphereIndices.data(), GL_STATIC_DRAW); // copy the index data to EBO
 
 
-		glBindVertexArray(0); // 解绑VAO
+		glBindVertexArray(0);
 	}
 
 
@@ -337,14 +339,14 @@ Triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2){
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO); // 绑定VBO
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); // 将顶点数据复制到缓冲中
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); // 设置顶点属性指针
-		glEnableVertexAttribArray(0); // 启用顶点属性
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); // 设置顶点属性指针
-		glEnableVertexAttribArray(1); // 启用顶点属性
-		glBindBuffer(GL_ARRAY_BUFFER, 0); // 解绑VBO
-		glBindVertexArray(0); // 解绑VAO
+		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); 
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); 
+		glEnableVertexAttribArray(0); 
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); 
+		glEnableVertexAttribArray(1); 
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0); 
 	}
 
 	void setColor(glm::vec4 _color) {
@@ -427,11 +429,11 @@ public:
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO); // 绑定VBO
-		glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW); // 将顶点数据复制到缓冲中
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0); // 设置顶点属性指针
-		glEnableVertexAttribArray(0); // 启用顶点属性
-		glBindVertexArray(0); // 解绑VAO
+		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW); 
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		glBindVertexArray(0);
 
 	};
 
