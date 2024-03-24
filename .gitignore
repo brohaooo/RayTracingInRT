@@ -74,7 +74,6 @@ StyleCopReport.xml
 *_h.h
 *.ilk
 *.meta
-*.obj
 *.iobj
 *.pch
 *.pdb
@@ -401,3 +400,6 @@ FodyWeavers.xsd
 out/
 build/
 .vscode/
+# assimp in 3rdparty
+#3rd_party/assimp/*
+*.obj
