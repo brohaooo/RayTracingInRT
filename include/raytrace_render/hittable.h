@@ -22,43 +22,22 @@ public:
 	glm::vec3 min() const { return _min; }
 	glm::vec3 max() const { return _max; }
 
-	//bool hit(const ray& r, interval ray_t) const {
-	//	for (int a = 0; a < 3; a++) {
-	//		float tmin = ray_t.min;
-	//		float tmax = ray_t.max;
-	//		// t0 is the intersection of the ray with the min plane
-	//		auto t0 = fmin((_min[a] - r.origin()[a]) / r.direction()[a],
-	//			(_max[a] - r.origin()[a]) / r.direction()[a]);
-	//		// t1 is the intersection of the ray with the max plane
-	//		auto t1 = fmax((_min[a] - r.origin()[a]) / r.direction()[a],
-	//			(_max[a] - r.origin()[a]) / r.direction()[a]);
-	//		tmin = fmax(t0, tmin);
-	//		tmax = fmin(t1, tmax);
-	//		// if tmax <= tmin, the ray missed the box
-	//		if (tmax <= tmin)
-	//			return false;
-	//	}
-	//	return true;
-	//}
 	bool hit(const ray& r, interval ray_t) const {
 		float tmin = ray_t.min;
 		float tmax = ray_t.max;
-		const float epsilon = 1e-8f;  // 小偏移量，避免除以0
-
 		for (int a = 0; a < 3; a++) {
-			float invD = 1.0f / (r.direction()[a] + epsilon);  // 添加偏移量计算方向的倒数
-			float t0 = (_min[a] - r.origin()[a]) * invD;
-			float t1 = (_max[a] - r.origin()[a]) * invD;
-
-			// 如果 invD 为负，交换 t0 和 t1
-			if (invD < 0.0f) std::swap(t0, t1);
-
-			tmin = t0 > tmin ? t0 : tmin;
-			tmax = t1 < tmax ? t1 : tmax;
-
-			if (tmax <= tmin) return false;
+			// t0 is the intersection of the ray with the min plane
+			auto t0 = fmin((_min[a] - r.origin()[a]) / (r.direction()[a]),
+				(_max[a] - r.origin()[a]) / (r.direction()[a]));
+			// t1 is the intersection of the ray with the max plane
+			auto t1 = fmax((_min[a] - r.origin()[a]) / (r.direction()[a]),
+				(_max[a] - r.origin()[a]) / (r.direction()[a] ));
+			tmin = fmax(t0, tmin);
+			tmax = fmin(t1, tmax);
+			// if tmax <= tmin, the ray missed the box
+			if (tmax <= tmin)
+				return false;
 		}
-
 		return true;
 	}
 

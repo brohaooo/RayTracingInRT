@@ -29,12 +29,12 @@ class scene {
 	hittable_list CPURT_objects; // ray tracing objects
     RT_Skybox CPURT_skybox; // ray tracing skybox
 
-    std::vector<Object*> objects; // 存储场景中的物体 (not ray tracing, it is openGL rasterization objects)
+    std::vector<Object*> objects; // scene objects to be rendered each frame (not ray tracing, it is openGL rasterization objects)
 
-    std::vector<Model*> rotate_models; // models that can be rotated by imgui
+    std::vector<Model*> rotate_models; // models that can be rotated by imgui, tmp implementation, to rotate the teapot and fish from imgui
     
     // TODO: add lights
-    //std::vector<Light*> lights;   // 存储场景中的光源
+    //std::vector<Light*> lights; 
     scene(int initNum) : CPURT_skybox("../../resource/skybox") {
         // ------------------ ray tracing objects ------------------
         // ground sphere in cpu ray tracing
