@@ -20,6 +20,7 @@
 #include <list>
 
 #include "scene.h"
+#include "InputHandler.h"
 
 
 struct PBR_parameters {
@@ -50,20 +51,22 @@ struct UBORenderInfo {
 
 
 class Renderer {
-  public:
+    public:
 
-GLFWwindow * window = nullptr;
-Shader * shader = nullptr;
-Rect * screenCanvas = nullptr;
-CPU_RAYTRACER::camera * CPURT_camera = nullptr;
-Camera * GL_camera = nullptr;
-int screen_width = 800;
-int screen_height = 600;
+    GLFWwindow * window = nullptr;
+    Shader * shader = nullptr;
+    Rect * screenCanvas = nullptr;
+    CPU_RAYTRACER::camera * CPURT_camera = nullptr;
+    Camera * GL_camera = nullptr;
+    int screen_width = 800;
+    int screen_height = 600;
 
-PBR_parameters pbr_params;
+    InputHandler * inputHandler = nullptr;
 
-GLuint global_ubo;
-UBORenderInfo uploadData;
+    PBR_parameters pbr_params;
+
+    GLuint global_ubo;
+    UBORenderInfo uploadData;
 
 
 	Renderer() {
@@ -92,7 +95,7 @@ UBORenderInfo uploadData;
         window = glfwCreateWindow(screen_width, screen_height, "RTRT", NULL, NULL);
 
         // 将 this 指针设置为 GLFW 窗口的用户数据
-        glfwSetWindowUserPointer(window, this);
+        //glfwSetWindowUserPointer(window, this);
 
 
         if (window == NULL)
@@ -107,9 +110,7 @@ UBORenderInfo uploadData;
         glfwSwapInterval(_vSync ? 1 : 0); // Enable vsync
 
         // register callback functions
-        glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-        glfwSetCursorPosCallback(window, mouse_callback);
-        glfwSetScrollCallback(window, scroll_callback);
+        //glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
         // tell GLFW to capture our mouse
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -138,21 +139,40 @@ UBORenderInfo uploadData;
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
 
-
-
         // setup openGL camera
         GL_camera = new Camera(glm::vec3(0, 2, 5));
-
-        
-
-
-        
-
 
         // modify camera infos before render loop starts
         GL_camera->MovementSpeed = 1.0f;
         //camera.Front = glm::vec3(-0.373257, -0.393942, -0.826684);
         GL_camera->Front = glm::normalize(glm::vec3(0, 2, 0) - GL_camera->Position);
+
+
+        // set up input handler
+        inputHandler = new InputHandler(window);
+        // set up callback functions
+        // mouse movement
+        inputHandler->setMouseMovementCallback([&](double xpos, double ypos) 
+        {
+            move_camera(xpos, ypos);
+        });
+        // scroll input
+        inputHandler->setScrollCallback([&](double yoffset) 
+        {
+            adjust_fov(yoffset);
+        });
+        // frame buffer size change
+        inputHandler->setFramebufferSizeCallback([&](int width, int height) 
+        {
+            adjust_window_size(width, height);
+        });
+        // keyboard input (not using callback function, but call InputHandler's processKeyboardInput() function in the main loop)
+        inputHandler->setKeyboardActionExecution([&]() 
+        {
+            keyboardActions();
+        });
+
+
 
 
         // set up Dear ImGui context
@@ -242,19 +262,10 @@ UBORenderInfo uploadData;
 		CPURT_camera->lookat = GL_camera->Position + GL_camera->Front;
         CPURT_camera->vfov = GL_camera->Zoom;
         // when the window size changes
-        // we only update the aspect ratio
-        // we don't change the image width (resolution will stay at a similar level)
         CPURT_camera->aspect_ratio = static_cast<float>(screen_width) / screen_height;
+        CPURT_camera->image_width = screen_width;
 
 
-	}
-
-
-
-    void process_input() {
-        if (enable_keyboard_input) {
-            processInput(window);
-        }
 	}
 
     void poll_events() {
@@ -450,15 +461,6 @@ UBORenderInfo uploadData;
     void set_camera_movement(bool enable) {
         enable_camera_movement = enable;
     }
-    bool is_mouse_input_enabled() {
-		return enable_mouse_input;
-	}
-    bool is_keyboard_input_enabled() {
-        return enable_keyboard_input;
-    }
-    bool is_camera_movement_enabled() {
-		return enable_camera_movement;
-	}
 
     bool has_RT_render_request_flag() {
 		return RT_render_request_flag;
@@ -480,9 +482,6 @@ UBORenderInfo uploadData;
     }
 
 
-
-
-
     private:
     //----------------------------------------------------------------------------------
     const bool _vSync = true; // Enable vsync
@@ -500,11 +499,9 @@ UBORenderInfo uploadData;
     // input callback functions
     void adjust_window_size(int width, int height);
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-    void capture_mouse_movement(double xpos, double ypos);
-    static void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-    void capture_scroll_input(double xoffset, double yoffset);
-    static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
-    void processInput(GLFWwindow* window);
+    void move_camera(double xpos, double ypos);
+    void adjust_fov(double yoffset);
+    void keyboardActions();
 
     // mouse movement variables
     float lastX = screen_width / 2.0f;
@@ -537,6 +534,12 @@ void Renderer::adjust_window_size(int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
+    screen_width = width;
+    screen_height = height;
+    updateUboData();
+    // update the ray tracing camera
+    update_CPURT_camera();
+    
 }
 void Renderer::framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     // 获取类实例指针
@@ -548,22 +551,10 @@ void Renderer::framebuffer_size_callback(GLFWwindow* window, int width, int heig
     }
 }
 
-void Renderer::mouse_callback(GLFWwindow* window, double xpos, double ypos)
-{
-	// 获取类实例指针
-	Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
-
-	// 调用实例的成员函数
-    if (renderer) {
-		renderer->capture_mouse_movement(xpos, ypos);
-	}
-}
-
-
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
-void Renderer::capture_mouse_movement(double xposIn, double yposIn)
+void Renderer::move_camera(double xposIn, double yposIn)
 {
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
@@ -587,84 +578,79 @@ void Renderer::capture_mouse_movement(double xposIn, double yposIn)
 }
 
 
-void Renderer::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-	// 获取类实例指针
-	Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
-	// 调用实例的成员函数
-    if (renderer) {
-		renderer->capture_scroll_input(xoffset, yoffset);
-	}
-}
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
-void Renderer::capture_scroll_input(double xoffset, double yoffset)
+void Renderer::adjust_fov(double yoffset)
 {
-    GL_camera->ProcessMouseScroll(static_cast<float>(yoffset));
+    if (enable_mouse_input){
+        GL_camera->ProcessMouseScroll(static_cast<float>(yoffset));
+    }
 }
 
-void Renderer::processInput(GLFWwindow* window)
+void Renderer::keyboardActions()
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+    if (enable_keyboard_input){
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
 
-    if (enable_camera_movement) {
-		if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-			GL_camera->ProcessKeyboard(FORWARD, deltaTime);
-		if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-			GL_camera->ProcessKeyboard(BACKWARD, deltaTime);
-		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-			GL_camera->ProcessKeyboard(LEFT, deltaTime);
-		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-			GL_camera->ProcessKeyboard(RIGHT, deltaTime);
-		if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-			GL_camera->ProcessKeyboard(UP, deltaTime);
-		if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-			GL_camera->ProcessKeyboard(DOWN, deltaTime);
-	}
+        if (enable_camera_movement) {
+	    	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+	    		GL_camera->ProcessKeyboard(FORWARD, deltaTime);
+	    	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+	    		GL_camera->ProcessKeyboard(BACKWARD, deltaTime);
+	    	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+	    		GL_camera->ProcessKeyboard(LEFT, deltaTime);
+	    	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+	    		GL_camera->ProcessKeyboard(RIGHT, deltaTime);
+	    	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+	    		GL_camera->ProcessKeyboard(UP, deltaTime);
+	    	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+	    		GL_camera->ProcessKeyboard(DOWN, deltaTime);
+	    }
 
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-			enable_camera_movement = false;
-            enable_mouse_input = false;
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-	}
-    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-        enable_camera_movement = true;
-        enable_mouse_input = true;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        RT_render_request_flag = true;
-    }
-    else {
-        RT_render_request_flag = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
-        reset_request_flag = true;
-    }
-    else {
-        reset_request_flag = false;
-	}
-
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-        if (!isRightKeyPressed) {
-            
-        }
-        isRightKeyPressed = true;
-    }
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        if (!isDownKeyPressed) {
-            
+        if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+	    		enable_camera_movement = false;
+                enable_mouse_input = false;
+	    		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	    }
+        if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
+            enable_camera_movement = true;
+            enable_mouse_input = true;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
 
-        isDownKeyPressed = true;
-    }
-    else {
-        isDownKeyPressed = false;
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+            RT_render_request_flag = true;
+        }
+        else {
+            RT_render_request_flag = false;
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+            reset_request_flag = true;
+        }
+        else {
+            reset_request_flag = false;
+	    }
+
+        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+            if (!isRightKeyPressed) {
+
+            }
+            isRightKeyPressed = true;
+        }
+        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+            if (!isDownKeyPressed) {
+
+            }
+
+            isDownKeyPressed = true;
+        }
+        else {
+            isDownKeyPressed = false;
+        }
     }
 }
 

@@ -9,7 +9,8 @@ int main() {
     
     
     Renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
-    Scene Scene(1); // create Scene object, which contains all the objects in the Scene
+    InputHandler * inputHandler = renderer.inputHandler; // get input handler from renderer
+    Scene Scene; // create Scene object, which contains all the objects in the Scene
     std::cout<<"scene created"<<std::endl;
     RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
     state_machine.print_state(); // initial state is idle
@@ -44,7 +45,7 @@ int main() {
             if (last_state == "idle") {
                 // before starting ray tracing, render the scene using openGL rasterization pipeline (for a quick preview)
                 // due to the double buffering, we need to render the scene twice to display the result (otherwise two frames will be recursively displayed)
-                renderer.process_input(); // update camera position and direction to newest values
+                inputHandler->processKeyboardInput(); // update camera position and direction to newest values
                 renderer.update_CPURT_camera(); // also update ray-tracing camera's position and direction to match the display camera's
                 renderer.render(Scene, false);
                 renderer.swap_buffers();
@@ -72,7 +73,7 @@ int main() {
 		}
 
         // common tasks for all states
-        renderer.process_input(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
+        inputHandler->processKeyboardInput(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
         bool CPU_rayTrace_display = current_state == "CPU_ray_tracing" || current_state == "displaying";
         renderer.render(Scene, CPU_rayTrace_display); // render the scene using openGL rasterization pipeline
 

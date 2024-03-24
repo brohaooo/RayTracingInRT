@@ -40,8 +40,12 @@ public:
 	}
 	virtual void Delete() = 0;
 
+	// load texture from a const unsigned char* data, used for loading texture from memory
 	virtual void setTexture(const unsigned char* texture_data, int image_width, int image_height, int channels) {
-
+		// delete the old texture
+		if (hasTexture) {
+			glDeleteTextures(1, &texture);
+		}
 		hasTexture = true;
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
@@ -59,8 +63,12 @@ public:
 		}
 		
 	}
-
+	// load texture from a file
 	virtual void setTexture(const char* filename) {
+		// delete the old texture
+		if (hasTexture) {
+			glDeleteTextures(1, &texture);
+		}
 		hasTexture = true;
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
@@ -90,6 +98,17 @@ public:
 		}
 			
 	}
+	// set texture from a texture id (it takes the texture id from another object)
+	virtual void setTexture(GLuint _texture) {
+		// delete the old texture
+		if (hasTexture) {
+			glDeleteTextures(1, &texture);
+		}
+		hasTexture = true;
+		texture = _texture;
+	}
+
+
 
 	virtual void updateTexture(const unsigned char* texture_data, int image_width, int image_height, int channels) {
 		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
