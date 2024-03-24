@@ -10,7 +10,7 @@ int main() {
     
     Renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
     InputHandler * inputHandler = renderer.inputHandler; // get input handler from renderer
-    Scene Scene; // create Scene object, which contains all the objects in the Scene
+    Scene Scene(1); // create Scene object, which contains all the objects in the Scene
     std::cout<<"scene created"<<std::endl;
     RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
     state_machine.print_state(); // initial state is idle
