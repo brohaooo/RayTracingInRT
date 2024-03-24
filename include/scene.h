@@ -8,8 +8,8 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "object.h"
-#include <shader.h>
+#include "Object.h"
+#include <Shader.h>
 
 
 

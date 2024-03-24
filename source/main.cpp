@@ -1,6 +1,6 @@
-#include "renderer.h"
-#include "scene.h"
-#include "state.h"
+#include "Renderer.h"
+#include "Scene.h"
+#include "State.h"
 
 
 

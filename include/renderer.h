@@ -5,8 +5,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include <shader.h>
-#include <camera.h>
+#include <Shader.h>
+#include <Camera.h>
 
 
 
@@ -19,7 +19,7 @@
 #include "imgui/imgui_impl_opengl3.h"
 #include <list>
 
-#include "scene.h"
+#include "Scene.h"
 #include "InputHandler.h"
 
 

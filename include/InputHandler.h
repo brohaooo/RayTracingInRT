@@ -48,30 +48,24 @@ private:
 
     static void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     {
-	    // 获取类实例指针
+	    // get class instance pointer (input handler itself)
 	    InputHandler* handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
 
-	    // 调用实例的成员函数
+	    // call its member function (registered from outside, with lambda capture)
         if (handler) {
             handler->mouseMovementCallback(xpos, ypos);
 	    }
     }
     static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     {
-        // 获取类实例指针
         InputHandler* handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
-
-        // 调用实例的成员函数
         if (handler) {
             handler->scrollCallback(yoffset);
         }
     }
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     {
-        // 获取类实例指针
         InputHandler* handler = static_cast<InputHandler*>(glfwGetWindowUserPointer(window));
-
-        // 调用实例的成员函数
         if (handler) {
             handler->framebufferSizeCallback(width, height);
         }
