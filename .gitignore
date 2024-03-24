@@ -399,3 +399,4 @@ FodyWeavers.xsd
 
 # output build folder
 out/
+build/
