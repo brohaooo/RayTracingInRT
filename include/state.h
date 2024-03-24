@@ -106,7 +106,7 @@ class RTRTStateMachine : public StateMachine
 public:
 	RTRTStateMachine() {
 		State* idle = new State("idle");
-		State* ray_tracing = new State("ray_tracing");
+		State* ray_tracing = new State("CPU_ray_tracing");
 		State* displaying = new State("displaying");
 
 
@@ -115,19 +115,19 @@ public:
 		add_state(ray_tracing);
 		add_state(displaying);
 		
-		add_transition(idle, ray_tracing, "start_RT");
-		add_transition(ray_tracing, displaying, "finish_RT");
+		add_transition(idle, ray_tracing, "start_CPU_RT");
+		add_transition(ray_tracing, displaying, "finish_CPU_RT");
 		add_transition(displaying, idle, "stop_display");
 
 		set_current_state(idle);
 	}
 	~RTRTStateMachine() {};
 
-	void input_start_RT() {
-		set_input("start_RT");
+	void input_start_CPU_RT() {
+		set_input("start_CPU_RT");
 	}
-	void input_finish_RT() {
-		set_input("finish_RT");
+	void input_finish_CPU_RT() {
+		set_input("finish_CPU_RT");
 	}
 	void input_stop_display() {
 		set_input("stop_display");

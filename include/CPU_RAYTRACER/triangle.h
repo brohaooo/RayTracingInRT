@@ -1,5 +1,5 @@
-#ifndef TRIANGLE_H
-#define TRIANGLE_H
+#ifndef CPU_RAYTRACER_TRIANGLE_H
+#define CPU_RAYTRACER_TRIANGLE_H
 
 
 #include "utils.h"
@@ -9,8 +9,9 @@
 #include <glm/gtc/quaternion.hpp> 
 #include <glm/gtx/quaternion.hpp>
 
-class triangle : public hittable {
-public:
+namespace CPU_RAYTRACER {
+	class triangle : public hittable {
+	public:
 	triangle() {}
 	
 	triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, shared_ptr<material> _material, glm::vec2 _uv0 = glm::vec2(0, 1), glm::vec2 _uv1 = glm::vec2(1, 1), glm::vec2 _uv2 = glm::vec2(0.5, 0), glm::vec3 _n0 = glm::vec3(0.0f), glm::vec3 _n1 = glm::vec3(0.0f), glm::vec3 _n2 = glm::vec3(0.0f) ):
@@ -123,10 +124,14 @@ private:
 	}
 
 };
+}
+
 
 
 #include "bvh.h"
 
+
+namespace CPU_RAYTRACER{
 // define a mesh class to store multiple triangles
 // it takes a list of triangles and build a BVH tree automatically
 // it also has a m matrix for transformation
@@ -213,61 +218,65 @@ private:
 	}
 
 };
+}
+
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-// load a mesh from a file using assimp
-// it loads an obj, merge all meshes triangles into a single std::vector<shared_ptr<hittable>>
-// then you can build a mesh object from the triangles using the mesh constructor
-// we will load the UV and normals of the vertices
-std::vector<shared_ptr<hittable>> load_mesh(const std::string& filename, shared_ptr<material> mat) {
-	std::vector<shared_ptr<hittable>> triangles;
-	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(filename, aiProcessPreset_TargetRealtime_Quality | aiProcess_PreTransformVertices);
-	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
-		std::cerr << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+
+namespace CPU_RAYTRACER {
+	// load a mesh from a file using assimp
+	// it loads an obj, merge all meshes triangles into a single std::vector<shared_ptr<hittable>>
+	// then you can build a mesh object from the triangles using the mesh constructor
+	// we will load the UV and normals of the vertices
+	std::vector<shared_ptr<hittable>> load_mesh(const std::string& filename, shared_ptr<material> mat) {
+		std::vector<shared_ptr<hittable>> triangles;
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile(filename, aiProcessPreset_TargetRealtime_Quality | aiProcess_PreTransformVertices);
+		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+			std::cerr << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+			return triangles;
+		}
+		for (unsigned int i = 0; i < scene->mNumMeshes; i++)
+		{
+			aiMesh* mesh = scene->mMeshes[i];
+			for (unsigned int j = 0; j < mesh->mNumFaces; j++)
+			{
+				aiFace face = mesh->mFaces[j];
+				if (face.mNumIndices != 3) {
+					std::cerr << "ERROR::ASSIMP::face.mNumIndices != 3" << std::endl;
+					return triangles;
+				}
+				aiVector3D v0 = mesh->mVertices[face.mIndices[0]];
+				aiVector3D v1 = mesh->mVertices[face.mIndices[1]];
+				aiVector3D v2 = mesh->mVertices[face.mIndices[2]];
+				aiVector3D uv0 = mesh->mTextureCoords[0][face.mIndices[0]];
+				aiVector3D uv1 = mesh->mTextureCoords[0][face.mIndices[1]];
+				aiVector3D uv2 = mesh->mTextureCoords[0][face.mIndices[2]];
+				aiVector3D n0 = mesh->mNormals[face.mIndices[0]];
+				aiVector3D n1 = mesh->mNormals[face.mIndices[1]];
+				aiVector3D n2 = mesh->mNormals[face.mIndices[2]];
+				triangles.push_back(std::make_shared<triangle>(
+					glm::vec3(v0.x, v0.y, v0.z),
+					glm::vec3(v1.x, v1.y, v1.z),
+					glm::vec3(v2.x, v2.y, v2.z),
+					mat,
+					glm::vec2(uv0.x, uv0.y),
+					glm::vec2(uv1.x, uv1.y),
+					glm::vec2(uv2.x, uv2.y),
+					glm::vec3(n0.x, n0.y, n0.z),
+					glm::vec3(n1.x, n1.y, n1.z),
+					glm::vec3(n2.x, n2.y, n2.z)
+				));
+
+			}
+		}
+
+
 		return triangles;
 	}
-	for (unsigned int i = 0; i < scene->mNumMeshes; i++)
-	{
-		aiMesh* mesh = scene->mMeshes[i];
-		for (unsigned int j = 0; j < mesh->mNumFaces; j++)
-		{
-			aiFace face = mesh->mFaces[j];
-			if (face.mNumIndices != 3) {
-				std::cerr << "ERROR::ASSIMP::face.mNumIndices != 3" << std::endl;
-				return triangles;
-			}
-			aiVector3D v0 = mesh->mVertices[face.mIndices[0]];
-			aiVector3D v1 = mesh->mVertices[face.mIndices[1]];
-			aiVector3D v2 = mesh->mVertices[face.mIndices[2]];
-			aiVector3D uv0 = mesh->mTextureCoords[0][face.mIndices[0]];
-			aiVector3D uv1 = mesh->mTextureCoords[0][face.mIndices[1]];
-			aiVector3D uv2 = mesh->mTextureCoords[0][face.mIndices[2]];
-			aiVector3D n0 = mesh->mNormals[face.mIndices[0]];
-			aiVector3D n1 = mesh->mNormals[face.mIndices[1]];
-			aiVector3D n2 = mesh->mNormals[face.mIndices[2]];
-			triangles.push_back(std::make_shared<triangle>(
-				glm::vec3(v0.x, v0.y, v0.z),
-				glm::vec3(v1.x, v1.y, v1.z),
-				glm::vec3(v2.x, v2.y, v2.z),
-				mat,
-				glm::vec2(uv0.x, uv0.y),
-				glm::vec2(uv1.x, uv1.y),
-				glm::vec2(uv2.x, uv2.y),
-				glm::vec3(n0.x, n0.y, n0.z),
-				glm::vec3(n1.x, n1.y, n1.z),
-				glm::vec3(n2.x, n2.y, n2.z)
-			));
-
-		}
-	}
-
-
-	return triangles;
 }
-
 
 
 

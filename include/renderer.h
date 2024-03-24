@@ -7,7 +7,8 @@
 
 #include <shader.h>
 #include <camera.h>
-#include "raytrace_camera.h"
+
+
 
 
 #include <iostream>
@@ -48,23 +49,24 @@ struct UBORenderInfo {
 };
 
 
-class RT_renderer {
+class Renderer {
   public:
-	GLFWwindow * window = nullptr;
-	Shader * shader = nullptr;
-    Rect * screenCanvas = nullptr;
-	raytrace_camera * RayTrace_camera = nullptr;
-	Camera * GL_camera = nullptr;
-	int image_width = 800;
-	int image_height = 600;
 
-    PBR_parameters pbr_params;
+GLFWwindow * window = nullptr;
+Shader * shader = nullptr;
+Rect * screenCanvas = nullptr;
+CPU_RAYTRACER::camera * CPURT_camera = nullptr;
+Camera * GL_camera = nullptr;
+int screen_width = 800;
+int screen_height = 600;
 
-    GLuint global_ubo;
-    UBORenderInfo uploadData;
+PBR_parameters pbr_params;
+
+GLuint global_ubo;
+UBORenderInfo uploadData;
 
 
-	RT_renderer() {
+	Renderer() {
 		initialize();
 	}
 
@@ -87,7 +89,7 @@ class RT_renderer {
         // glfw window creation
         // --------------------
         std::cout << "Creating GLFW window" << std::endl;
-        window = glfwCreateWindow(image_width, image_height, "RTRT", NULL, NULL);
+        window = glfwCreateWindow(screen_width, screen_height, "RTRT", NULL, NULL);
 
         // 将 this 指针设置为 GLFW 窗口的用户数据
         glfwSetWindowUserPointer(window, this);
@@ -158,7 +160,7 @@ class RT_renderer {
         ImGui_initialize();
         // --------------------------------
 
-        Initialize_RayTrace_camera();
+        Initialize_CPURT_camera();
 
         InitializeUbo();
 
@@ -185,19 +187,19 @@ class RT_renderer {
         io.Fonts->AddFontFromFileTTF("../../resource/fonts/Roboto-Medium.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
     }
 
-    void Initialize_RayTrace_camera() {
+    void Initialize_CPURT_camera() {
         // Setup ray_trace camera
-        RayTrace_camera = new raytrace_camera();
-        RayTrace_camera->aspect_ratio = static_cast<float>(image_width) / image_height;
-        RayTrace_camera->image_width = image_width;
-        RayTrace_camera->samples_per_pixel = 10;
-        RayTrace_camera->max_depth = 8;
-        RayTrace_camera->vfov = 20;
-        RayTrace_camera->lookfrom = GL_camera->Position;
-        RayTrace_camera->lookat = GL_camera->Front;
-        RayTrace_camera->vup = GL_camera->WorldUp;
-        RayTrace_camera->defocus_angle = 0; // no defocus blur, fuck it now, I hate it
-        RayTrace_camera->focus_dist = 10;
+        CPURT_camera = new CPU_RAYTRACER::camera();
+        CPURT_camera->aspect_ratio = static_cast<float>(screen_width) / screen_height;
+        CPURT_camera->image_width = screen_width;
+        CPURT_camera->samples_per_pixel = 10;
+        CPURT_camera->max_depth = 8;
+        CPURT_camera->vfov = 20;
+        CPURT_camera->lookfrom = GL_camera->Position;
+        CPURT_camera->lookat = GL_camera->Front;
+        CPURT_camera->vup = GL_camera->WorldUp;
+        CPURT_camera->defocus_angle = 0; // no defocus blur, fuck it now, I hate it
+        CPURT_camera->focus_dist = 10;
     }
 
     void InitializeUbo() {
@@ -206,7 +208,7 @@ class RT_renderer {
         glBindBuffer(GL_UNIFORM_BUFFER, global_ubo);
 
         uploadData.cameraPos = GL_camera->Position;
-        uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f);
+        uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
         uploadData.view = GL_camera->GetViewMatrix();
         glBufferData(GL_UNIFORM_BUFFER, sizeof(uploadData), &uploadData, GL_STATIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -229,17 +231,20 @@ class RT_renderer {
 
     void updateUboData() {
 		uploadData.cameraPos = GL_camera->Position;
-		uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(image_width) / static_cast<float>(image_height), 0.1f, 100.0f);
+		uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
 		uploadData.view = GL_camera->GetViewMatrix();
 	}
 
 
 
-    void update_RayTrace_camera() {
-		RayTrace_camera->lookfrom = GL_camera->Position;
-		RayTrace_camera->lookat = GL_camera->Position + GL_camera->Front;
-        RayTrace_camera->vfov = GL_camera->Zoom;
-        RayTrace_camera->aspect_ratio = static_cast<float>(image_width) / image_height;
+    void update_CPURT_camera() {
+		CPURT_camera->lookfrom = GL_camera->Position;
+		CPURT_camera->lookat = GL_camera->Position + GL_camera->Front;
+        CPURT_camera->vfov = GL_camera->Zoom;
+        // when the window size changes
+        // we only update the aspect ratio
+        // we don't change the image width (resolution will stay at a similar level)
+        CPURT_camera->aspect_ratio = static_cast<float>(screen_width) / screen_height;
 
 
 	}
@@ -260,7 +265,7 @@ class RT_renderer {
 		glfwSwapBuffers(window);
 	}   
 
-	void render(scene & _scene, bool render_screenCanvas = false) {
+	void render(Scene & _scene, bool render_screenCanvas = false) {
         std::vector<Object*> & objects = _scene.objects;
         std::vector<Model*>& rotate_models = _scene.rotate_models;
 		// render loop
@@ -280,8 +285,8 @@ class RT_renderer {
             // we preserve the color buffer, but clear the depth buffer, because we will draw the screenCanvas on top of the openGL objects
             glClear(GL_DEPTH_BUFFER_BIT); 
             
-            unsigned char* rendered_output = RayTrace_camera->rendered_image;
-            screenCanvas->updateTexture(rendered_output, image_width, image_height, 4);
+            unsigned char* rendered_output = CPURT_camera->rendered_image;
+            screenCanvas->updateTexture(rendered_output, screen_width, screen_height, 4);
 
 
             screenCanvas->draw();
@@ -412,28 +417,28 @@ class RT_renderer {
 		// --------------------------------
 	}   
 
-    void CPURT_render(const scene& Scene) {
-        hittable_list RT_objects = Scene.CPURT_objects;
-		RayTrace_camera->render_to_png(RT_objects);
+    void CPURT_render(const Scene& Scene) {
+        CPU_RAYTRACER::hittable_list RT_objects = Scene.CPURT_objects;
+		CPURT_camera->render_to_png(RT_objects);
 
-        unsigned char* rendered_output = RayTrace_camera->rendered_image;
+        unsigned char* rendered_output = CPURT_camera->rendered_image;
         if (screenCanvas == nullptr) {
             screenCanvas = new Rect();
 		}
         screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
-        screenCanvas->setTexture(rendered_output, image_width, image_height,4);
+        screenCanvas->setTexture(rendered_output, screen_width, screen_height,4);
 
     }
 
-    void CPURT_render_thread(const scene& Scene) {
-		RayTrace_camera->non_blocking_render(Scene.CPURT_objects, rendering_finished_flag, &Scene.CPURT_skybox);
+    void CPURT_render_thread(const Scene& Scene) {
+		CPURT_camera->non_blocking_render(Scene.CPURT_objects, rendering_finished_flag, &Scene.CPURT_skybox);
 
-        unsigned char* rendered_output = RayTrace_camera->rendered_image;
+        unsigned char* rendered_output = CPURT_camera->rendered_image;
         if (screenCanvas == nullptr) {
             screenCanvas = new Rect();
         }
         screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
-        screenCanvas->setTexture(rendered_output, image_width, image_height,4);
+        screenCanvas->setTexture(rendered_output, screen_width, screen_height,4);
 	}
 
     void set_mouse_input(bool enable) {
@@ -502,8 +507,8 @@ class RT_renderer {
     void processInput(GLFWwindow* window);
 
     // mouse movement variables
-    float lastX = image_width / 2.0f;
-    float lastY = image_height / 2.0f;
+    float lastX = screen_width / 2.0f;
+    float lastY = screen_height / 2.0f;
     bool firstMouse = true;
 
     // timing
@@ -527,15 +532,15 @@ class RT_renderer {
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
-void RT_renderer::adjust_window_size(int width, int height)
+void Renderer::adjust_window_size(int width, int height)
 {
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
-void RT_renderer::framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+void Renderer::framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     // 获取类实例指针
-    RT_renderer* renderer = static_cast<RT_renderer*>(glfwGetWindowUserPointer(window));
+    Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
     // 调用实例的成员函数
     if (renderer) {
@@ -543,10 +548,10 @@ void RT_renderer::framebuffer_size_callback(GLFWwindow* window, int width, int h
     }
 }
 
-void RT_renderer::mouse_callback(GLFWwindow* window, double xpos, double ypos)
+void Renderer::mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
 	// 获取类实例指针
-	RT_renderer* renderer = static_cast<RT_renderer*>(glfwGetWindowUserPointer(window));
+	Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
 	// 调用实例的成员函数
     if (renderer) {
@@ -558,7 +563,7 @@ void RT_renderer::mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
-void RT_renderer::capture_mouse_movement(double xposIn, double yposIn)
+void Renderer::capture_mouse_movement(double xposIn, double yposIn)
 {
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
@@ -582,10 +587,10 @@ void RT_renderer::capture_mouse_movement(double xposIn, double yposIn)
 }
 
 
-void RT_renderer::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+void Renderer::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	// 获取类实例指针
-	RT_renderer* renderer = static_cast<RT_renderer*>(glfwGetWindowUserPointer(window));
+	Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
 	// 调用实例的成员函数
     if (renderer) {
@@ -595,12 +600,12 @@ void RT_renderer::scroll_callback(GLFWwindow* window, double xoffset, double yof
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
-void RT_renderer::capture_scroll_input(double xoffset, double yoffset)
+void Renderer::capture_scroll_input(double xoffset, double yoffset)
 {
     GL_camera->ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
-void RT_renderer::processInput(GLFWwindow* window)
+void Renderer::processInput(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);

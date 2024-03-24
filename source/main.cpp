@@ -1,4 +1,4 @@
-#include "RT_renderer.h"
+#include "renderer.h"
 #include "scene.h"
 #include "state.h"
 
@@ -8,8 +8,8 @@ int main() {
 
     
     
-    RT_renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
-    scene Scene(1); // create scene object, which contains all the objects in the scene
+    Renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
+    Scene Scene(1); // create Scene object, which contains all the objects in the Scene
     std::cout<<"scene created"<<std::endl;
     RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
     state_machine.print_state(); // initial state is idle
@@ -40,12 +40,12 @@ int main() {
             }
 
 		}
-        else if (current_state == "ray_tracing") {
+        else if (current_state == "CPU_ray_tracing") {
             if (last_state == "idle") {
                 // before starting ray tracing, render the scene using openGL rasterization pipeline (for a quick preview)
                 // due to the double buffering, we need to render the scene twice to display the result (otherwise two frames will be recursively displayed)
                 renderer.process_input(); // update camera position and direction to newest values
-                renderer.update_RayTrace_camera(); // also update ray-tracing camera's position and direction to match the display camera's
+                renderer.update_CPURT_camera(); // also update ray-tracing camera's position and direction to match the display camera's
                 renderer.render(Scene, false);
                 renderer.swap_buffers();
                 renderer.render(Scene, false);
@@ -62,7 +62,7 @@ int main() {
 		}
         else if (current_state == "displaying") {
 
-            if (last_state == "ray_tracing") {
+            if (last_state == "CPU_ray_tracing") {
 				renderer.set_keyboard_input(true);
 			}
 
@@ -73,15 +73,14 @@ int main() {
 
         // common tasks for all states
         renderer.process_input(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
-        renderer.update_RayTrace_camera(); // update ray-tracing camera's position and direction to match the display camera's
-        bool CPU_rayTrace_display = current_state == "ray_tracing" || current_state == "displaying";
+        bool CPU_rayTrace_display = current_state == "CPU_ray_tracing" || current_state == "displaying";
         renderer.render(Scene, CPU_rayTrace_display); // render the scene using openGL rasterization pipeline
 
 
 
         // process state input by checking the renderer's flags
         if (renderer.has_RT_render_request_flag()) {
-			state_machine.set_input("start_RT");
+			state_machine.set_input("start_CPU_RT");
 			renderer.reset_RT_render_request_flag();
 		}
         if (renderer.has_reset_request_flag()) {
@@ -89,7 +88,7 @@ int main() {
             renderer.reset_reset_request_flag();
         }
         if (renderer.has_rendering_finished_flag()) {
-			state_machine.set_input("finish_RT");
+			state_machine.set_input("finish_CPU_RT");
 			renderer.reset_rendering_finished_flag();
 		}
 

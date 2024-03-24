@@ -2,15 +2,8 @@
 #define SCENE_H
 
 
-#include "utils.h"
+#include <CPU_RAYTRACER/CPU_RAYTRACER.h>
 
-#include "raytrace_camera.h"
-#include "color.h"
-#include "hittable_list.h"
-#include "bvh.h"
-#include "material.h"
-#include "sphere.h"
-#include "triangle.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -24,33 +17,33 @@
 #include <iostream>
 #include <chrono>
 
-class scene {
+class Scene {
   public:
-	hittable_list CPURT_objects; // ray tracing objects
-    RT_Skybox CPURT_skybox; // ray tracing skybox
+	CPU_RAYTRACER::hittable_list CPURT_objects; // ray tracing objects
+    CPU_RAYTRACER::skybox CPURT_skybox; // ray tracing skybox
 
-    std::vector<Object*> objects; // scene objects to be rendered each frame (not ray tracing, it is openGL rasterization objects)
+    std::vector<Object*> objects; // Scene objects to be rendered each frame (not ray tracing, it is openGL rasterization objects)
 
     std::vector<Model*> rotate_models; // models that can be rotated by imgui, tmp implementation, to rotate the teapot and fish from imgui
     
     // TODO: add lights
     //std::vector<Light*> lights; 
-    scene(int initNum) : CPURT_skybox("../../resource/skybox") {
+    Scene(int initNum) : CPURT_skybox("../../resource/skybox") {
         // ------------------ ray tracing objects ------------------
         // ground sphere in cpu ray tracing
-        auto diffuse_material = make_shared<lambertian>(glm::vec3(0.5, 0.5, 0.5));
-        auto glass_material = make_shared<dielectric>(1.5);
-        CPURT_objects.add(make_shared<sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
-        auto light_material = make_shared<diffuse_light>(glm::vec3(4, 4, 4));
-        CPURT_objects.add(make_shared<sphere>(glm::vec3(2, 1, 0), 0.8, light_material));
+        auto diffuse_material = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(0.5, 0.5, 0.5));
+        auto glass_material = make_shared<CPU_RAYTRACER::dielectric>(1.5);
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
+        auto light_material = make_shared<CPU_RAYTRACER::diffuse_light>(glm::vec3(4, 4, 4));
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(2, 1, 0), 0.8, light_material));
 
         // a mesh teapot
-        std::vector<shared_ptr<hittable>> mesh_vec = load_mesh("../../resource/teapot.obj", diffuse_material);
-        mesh  teapot_mesh(mesh_vec, glass_material,glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
-        CPURT_objects.add(make_shared<mesh>(teapot_mesh));
+        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> mesh_vec = CPU_RAYTRACER::load_mesh("../../resource/teapot.obj", diffuse_material);
+        CPU_RAYTRACER::mesh  teapot_mesh(mesh_vec, glass_material,glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::mesh>(teapot_mesh));
         // construct BVH
-        hittable_list BVH_RT_objects;
-        BVH_RT_objects = hittable_list(make_shared<BVH_node>(CPURT_objects));
+        CPU_RAYTRACER::hittable_list BVH_RT_objects;
+        BVH_RT_objects = CPU_RAYTRACER::hittable_list(make_shared<CPU_RAYTRACER::BVH_node>(CPURT_objects));
         CPURT_objects = BVH_RT_objects;
 
 
@@ -101,46 +94,46 @@ class scene {
 
     }
 
-	scene() : CPURT_skybox("../../resource/skybox") {
+	Scene() : CPURT_skybox("../../resource/skybox") {
         // ------------------ ray tracing objects ------------------
 
         // different materials:
         // lambertian: diffuse material
-        auto diffuse_material = make_shared<lambertian>(glm::vec3(0.5, 0.5, 0.5));
-        CPURT_objects.add(make_shared<sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
+        auto diffuse_material = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(0.5, 0.5, 0.5));
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
 
         // dielectric: transparent material, has reflection and refraction
-        auto glass_material = make_shared<dielectric>(1.5);
-        CPURT_objects.add(make_shared<sphere>(glm::vec3(0, 1, -2.2), 1.0, glass_material));
+        auto glass_material = make_shared<CPU_RAYTRACER::dielectric>(1.5);
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, -2.2), 1.0, glass_material));
 
         // diffuse material with texture
-        shared_ptr<texture> earth_texture = make_shared<image_texture>("../../resource/earthmap.jpg");
-        shared_ptr<material> earth_surface_material = make_shared<lambertian>(earth_texture);
-        shared_ptr<sphere> earth = make_shared<sphere>(glm::vec3(0, 1, 2.2), 1.0, earth_surface_material);
+        shared_ptr<CPU_RAYTRACER::texture> earth_texture = make_shared<CPU_RAYTRACER::image_texture>("../../resource/earthmap.jpg");
+        shared_ptr<CPU_RAYTRACER::material> earth_surface_material = make_shared<CPU_RAYTRACER::lambertian>(earth_texture);
+        shared_ptr<CPU_RAYTRACER::sphere> earth = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 2.2), 1.0, earth_surface_material);
         CPURT_objects.add(earth);
         //glm::quat q = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
         //earth->rotate(q);
         
         // metal: reflective material
-        auto metal_material = make_shared<metal>(glm::vec3(0.7, 0.6, 0.5), 0.0);
-        CPURT_objects.add(make_shared<sphere>(glm::vec3(0, 1, 0), 1.0, metal_material));
+        auto metal_material = make_shared<CPU_RAYTRACER::metal>(glm::vec3(0.7, 0.6, 0.5), 0.0);
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 0), 1.0, metal_material));
 
         // diffuse light material
-        auto light_material = make_shared<diffuse_light>(glm::vec3(2, 2, 2));
-        CPURT_objects.add(make_shared<sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
+        auto light_material = make_shared<CPU_RAYTRACER::diffuse_light>(glm::vec3(2, 2, 2));
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
 
         // triangle
         glm::vec3 v0(-1, 2, 0);
         glm::vec3 v1(1, 2, 0);
         glm::vec3 v2(0, 4, 0);
-        CPURT_objects.add(make_shared<triangle>(v0, v1, v2, diffuse_material));
+        CPURT_objects.add(make_shared<CPU_RAYTRACER::triangle>(v0, v1, v2, diffuse_material));
         //CPURT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
 
 
 
         // construct BVH
-        hittable_list BVH_RT_objects;
-        BVH_RT_objects = hittable_list(make_shared<BVH_node>(CPURT_objects));
+        CPU_RAYTRACER::hittable_list BVH_RT_objects;
+        BVH_RT_objects = CPU_RAYTRACER::hittable_list(make_shared<CPU_RAYTRACER::BVH_node>(CPURT_objects));
         CPURT_objects = BVH_RT_objects;
 
 
