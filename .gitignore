@@ -74,6 +74,7 @@ StyleCopReport.xml
 *_h.h
 *.ilk
 *.meta
+*.obj
 *.iobj
 *.pch
 *.pdb
@@ -400,6 +401,4 @@ FodyWeavers.xsd
 out/
 build/
 .vscode/
-# assimp in 3rdparty, seems like if compiled, it will generate some files, and make it unable to compile from other machine
-# don't know how to fix it, so just ignore it
-3rd_party/assimp/*
+
