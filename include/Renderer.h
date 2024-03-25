@@ -109,9 +109,6 @@ class Renderer {
 
         glfwSwapInterval(_vSync ? 1 : 0); // Enable vsync
 
-        // register callback functions
-        //glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
         // tell GLFW to capture our mouse
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -150,7 +147,7 @@ class Renderer {
 
         // set up input handler
         inputHandler = new InputHandler(window);
-        // set up callback functions
+        // set up callback functions by registering lambda functions
         // mouse movement
         inputHandler->setMouseMovementCallback([&](double xpos, double ypos) 
         {

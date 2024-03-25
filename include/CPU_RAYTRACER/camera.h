@@ -64,6 +64,17 @@ namespace CPU_RAYTRACER {
 
                 }
             }
+            std::clog << "\rDone. Now writing to file...                 \n";
+            FILE* file_pointer;
+            std::string file_name = "../../outputs/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".png";
+            file_pointer = fopen(file_name.c_str(), "wb");
+
+            if (file_pointer == NULL)
+            {
+                std::cout << "Error, Unable to open the file" << std::endl;
+            }
+            svpng(file_pointer, image_width, image_height, rendered_image, 1);
+
             std::clog << "\rDone.                 \n";
             finish_flag = true;
         }

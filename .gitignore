@@ -402,3 +402,6 @@ out/
 build/
 .vscode/
 
+# image output folder
+output/
+

@@ -23,7 +23,6 @@ class Scene {
     CPU_RAYTRACER::skybox CPURT_skybox; // ray tracing skybox
 
     std::vector<Object*> objects; // Scene objects to be rendered each frame (not ray tracing, it is openGL rasterization objects)
-
     std::vector<Model*> rotate_models; // models that can be rotated by imgui, tmp implementation, to rotate the teapot and fish from imgui
     
     // TODO: add lights
