@@ -3,6 +3,8 @@
 
 
 #include <CPU_RAYTRACER/CPU_RAYTRACER.h>
+#include <GPU_RAYTRACER/GPU_RAYTRACER.h>
+
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>

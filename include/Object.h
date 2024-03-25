@@ -17,6 +17,7 @@ public:
 	glm::mat4 projectionMatrix;
 	glm::vec3 cameraPos;
 	// other things like light position, etc.
+	bool flipYCoord;
 };
 
 
@@ -163,6 +164,11 @@ class Rect : public ScreenSpaceObject {
 			glDeleteVertexArrays(1, &VAO);
 			glDeleteBuffers(1, &VBO);
 		};
+
+		void prepareDraw(const RenderContext& context) override {
+			shader->use();
+			shader->setBool("flipYCoord", context.flipYCoord);
+		}
 
 		void draw() override {
 			shader->use();

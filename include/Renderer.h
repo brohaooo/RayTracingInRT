@@ -60,6 +60,7 @@ class Renderer {
     Camera * GL_camera = nullptr;
     int screen_width = 800;
     int screen_height = 600;
+    RenderContext context;// not used for now, we use UBO to pass the camera info
 
     InputHandler * inputHandler = nullptr;
 
@@ -93,9 +94,6 @@ class Renderer {
         // --------------------
         std::cout << "Creating GLFW window" << std::endl;
         window = glfwCreateWindow(screen_width, screen_height, "RTRT", NULL, NULL);
-
-        // 将 this 指针设置为 GLFW 窗口的用户数据
-        //glfwSetWindowUserPointer(window, this);
 
 
         if (window == NULL)
@@ -180,6 +178,9 @@ class Renderer {
         Initialize_CPURT_camera();
 
         InitializeUbo();
+
+        // set up the screenCanvas, it will be used to display the ray tracing result (either CPU version or GPU version)
+        screenCanvas = new Rect();
 
 	}
 
@@ -295,6 +296,8 @@ class Renderer {
             
             unsigned char* rendered_output = CPURT_camera->rendered_image;
             screenCanvas->updateTexture(rendered_output, screen_width, screen_height, 4);
+            context.flipYCoord = true; // because our CPU ray tracing image is flipped (origin at top-left corner, while openGL is at bottom-left corner)
+            screenCanvas->prepareDraw(context);
 
 
             screenCanvas->draw();
@@ -308,11 +311,7 @@ class Renderer {
         // clear screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        
-
-
-        RenderContext context;// not used for now, we use UBO to pass the camera info
-        
+            
 
         for (auto object : rotate_models) {
             //glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -337,30 +336,12 @@ class Renderer {
 			object->draw();
 		}
 
-
-        
-
-
-
-
+    
         // imgui---------------------------
         render_IMGUI();
         // --------------------------------
 
-
-
-
-
         
-	}
-
-    void reset_rendering() {
-		// reset the rendered image by delete the screenCanvas
-        if (screenCanvas != nullptr) {
-			delete screenCanvas;
-			screenCanvas = nullptr;
-		}
-
 	}
 
 
@@ -425,25 +406,13 @@ class Renderer {
 		// --------------------------------
 	}   
 
-    void CPURT_render(const Scene& Scene) {
-        CPU_RAYTRACER::hittable_list RT_objects = Scene.CPURT_objects;
-		CPURT_camera->render_to_png(RT_objects);
-
-        unsigned char* rendered_output = CPURT_camera->rendered_image;
-        if (screenCanvas == nullptr) {
-            screenCanvas = new Rect();
-		}
-        screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
-        screenCanvas->setTexture(rendered_output, screen_width, screen_height,4);
-
-    }
-
     void CPURT_render_thread(const Scene& Scene) {
 		CPURT_camera->non_blocking_render(Scene.CPURT_objects, rendering_finished_flag, &Scene.CPURT_skybox);
 
         unsigned char* rendered_output = CPURT_camera->rendered_image;
         if (screenCanvas == nullptr) {
-            screenCanvas = new Rect();
+            std::cout<<"ERROR: screenCanvas is nullptr"<<std::endl;
+            return;
         }
         screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
         screenCanvas->setTexture(rendered_output, screen_width, screen_height,4);

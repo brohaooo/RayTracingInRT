@@ -35,7 +35,6 @@ int main() {
         // things to do when state changes
         if (current_state == "idle") {
             if (last_state == "displaying") {
-            	renderer.reset_rendering();
                 renderer.set_camera_movement(true);
                 renderer.set_mouse_input(true);
             }

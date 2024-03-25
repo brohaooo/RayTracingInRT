@@ -2,11 +2,19 @@
 out vec4 FragColor;
 
 in vec2 TexCoords;
+uniform bool flipYCords = true;
 
 uniform sampler2D texture1;
 
 void main()
 {
-    vec2 flippedCoords = vec2(TexCoords.x, 1.0 - TexCoords.y);
-    FragColor = texture(texture1, flippedCoords);
+    // commonly we do not flip the y cords in opengl
+    if (!flipYCords){
+        FragColor = texture(texture1, TexCoords);
+    }
+    // if such texture is a png or other image format that has the y axis flipped
+    else{
+        FragColor = texture(texture1, vec2(TexCoords.x, 1.0 - TexCoords.y));
+    }
+
 }
