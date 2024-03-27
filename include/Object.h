@@ -45,12 +45,11 @@ public:
 
 	// load texture from a const unsigned char* data, used for loading texture from memory
 	virtual void setTexture(const unsigned char* texture_data, int image_width, int image_height, int channels) {
-		// delete the old texture
-		if (hasTexture) {
-			glDeleteTextures(1, &texture);
+		// if the object doesn't have a texture, create one
+		if (!hasTexture) {
+			glGenTextures(1, &texture);
 		}
 		hasTexture = true;
-		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
 		// set the texture wrapping parameters
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
@@ -68,12 +67,12 @@ public:
 	}
 	// load texture from a file
 	virtual void setTexture(const char* filename) {
-		// delete the old texture
-		if (hasTexture) {
-			glDeleteTextures(1, &texture);
+		// if the object doesn't have a texture, create one
+		if (!hasTexture) {
+			glGenTextures(1, &texture);
 		}
+		//std::cout << texture << std::endl;
 		hasTexture = true;
-		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
 		// set the texture wrapping parameters
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
@@ -103,10 +102,6 @@ public:
 	}
 	// set texture from a texture id (it takes the texture id from another object)
 	virtual void setTexture(GLuint _texture) {
-		// delete the old texture
-		if (hasTexture) {
-			glDeleteTextures(1, &texture);
-		}
 		hasTexture = true;
 		texture = _texture;
 	}
@@ -333,13 +328,20 @@ public:
 class Triangle : public MVPObject {
 public:
 glm::vec4 color;
-Triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2){
+glm::vec3 v0,v1,v2;
+glm::vec3 n1,n2,n3;
+
+Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
+{
+	// a triangle has only one normal(if it is just a single triangle)
+	n1 = n2 = n3 = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+
 	GLfloat vertices[] =
 	{
 		// Positions    // uv
-		v0.x, v0.y, v0.z,   0.0f, 1.0f, // left bottom
-		v1.x, v1.y, v1.z,   1.0f, 1.0f, // right bottom
-		v2.x, v2.y, v2.z,   0.5f, 0.0f, // mid top
+		_v0.x, _v0.y, _v0.z,   0.0f, 1.0f, // left bottom
+		_v1.x, _v1.y, _v1.z,   1.0f, 1.0f, // right bottom
+		_v2.x, _v2.y, _v2.z,   0.5f, 0.0f, // mid top
 	};
 
 		glGenVertexArrays(1, &VAO);

@@ -1,0 +1,61 @@
+#version 430 core
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+uniform vec3 cameraPos;
+uniform vec3 cameraFront; 
+uniform vec3 cameraUp; 
+uniform float fov; // in degrees
+uniform float aspectRatio; 
+uniform int imageWidth;
+uniform int imageHeight;
+uniform bool hasSkybox;
+
+uniform samplerCube skyboxTexture;
+uniform samplerBuffer primitiveBuffer;
+
+
+layout(binding = 2, rgba32f) uniform image2D outputImage;
+
+//struct Primitive
+
+
+
+
+void main() {
+    // get the pixel coordinate
+    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+    // check if the pixel coordinate is out of the image, if so, the thread will exit
+    if (texCoord.x >= imageWidth || texCoord.y >= imageHeight) {
+        return;
+    }
+    // change the coordinate system to NDC
+    vec2 ndcCoord = (2.0 * vec2(texCoord) - vec2(imageWidth, imageHeight)) / vec2(imageWidth, imageHeight);
+    ndcCoord.y *= -1.0; // in NDC, y is from bottom to top, while in image, y is from top to bottom
+
+    // compute the ray direction via the camera parameters
+    float tanFov = tan(radians(fov) / 2.0);
+    vec3 rayDir = normalize(cameraFront + tanFov * ndcCoord.x * aspectRatio * cross(cameraFront, cameraUp) + tanFov * ndcCoord.y * cameraUp);
+
+
+    // ray tracing
+
+
+
+
+
+
+
+    // just get the color from the skybox
+    if (hasSkybox) {
+        vec3 color = texture(skyboxTexture, rayDir).rgb;
+        imageStore(outputImage, texCoord, vec4(color, 1.0));
+        return;
+    }
+
+    
+
+    
+    
+    return;
+}

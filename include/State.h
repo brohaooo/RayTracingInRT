@@ -91,7 +91,7 @@ public:
 	}
 
 	void update() {// according to the input, update new state
-		if(currentState->transitions.count(input) != 0)
+		if(currentState->transitions.count(input) != 0)// if the input is a valid transition
 			currentState = currentState->transitions[input];
 	}
 
@@ -105,32 +105,48 @@ class RTRTStateMachine : public StateMachine
 {
 public:
 	RTRTStateMachine() {
-		State* idle = new State("idle");
-		State* ray_tracing = new State("CPU_ray_tracing");
-		State* displaying = new State("displaying");
+		State* default_state = new State("Default render state");
+		State* CPU_ray_tracing = new State("CPU ray-tracing");
+		State* CPU_displaying = new State("Displaying CPU ray-tracing result");
+		State* GPU_ray_tracing = new State("GPU_ray_tracing state");
 
 
 
-		add_state(idle);
-		add_state(ray_tracing);
-		add_state(displaying);
+		add_state(default_state);
+		add_state(CPU_ray_tracing);
+		add_state(CPU_displaying);
+		add_state(GPU_ray_tracing);
 		
-		add_transition(idle, ray_tracing, "start_CPU_RT");
-		add_transition(ray_tracing, displaying, "finish_CPU_RT");
-		add_transition(displaying, idle, "stop_display");
 
-		set_current_state(idle);
+
+		add_transition(default_state, CPU_ray_tracing, "switch_to_CPU_RT");
+		add_transition(default_state, GPU_ray_tracing, "switch_to_GPU_RT");
+
+		add_transition(CPU_ray_tracing, CPU_displaying, "finish_CPU_RT");
+
+		add_transition(CPU_displaying, default_state, "switch_to_default");
+		add_transition(CPU_displaying, GPU_ray_tracing, "switch_to_GPU_RT");
+
+		add_transition(GPU_ray_tracing, default_state, "switch_to_default");
+		add_transition(GPU_ray_tracing, CPU_ray_tracing, "switch_to_CPU_RT");
+		
+
+
+		set_current_state(default_state);
 	}
 	~RTRTStateMachine() {};
 
-	void input_start_CPU_RT() {
-		set_input("start_CPU_RT");
+	void request_start_CPURT() {
+		set_input("switch_to_CPU_RT");
 	}
-	void input_finish_CPU_RT() {
+	void request_display_CPURT() {
 		set_input("finish_CPU_RT");
 	}
-	void input_stop_display() {
-		set_input("stop_display");
+	void request_start_default_rendering() {
+		set_input("switch_to_default");
+	}
+	void request_start_GPURT() {
+		set_input("switch_to_GPU_RT");
 	}
 
 

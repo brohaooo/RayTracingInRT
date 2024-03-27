@@ -57,6 +57,7 @@ class Renderer {
     Shader * shader = nullptr;
     Rect * screenCanvas = nullptr;
     CPU_RAYTRACER::camera * CPURT_camera = nullptr;
+    GPU_RAYTRACER::RaytraceManager * GPURT_manager = nullptr;
     Camera * GL_camera = nullptr;
     int screen_width = 800;
     int screen_height = 600;
@@ -79,8 +80,8 @@ class Renderer {
         // glfw: initialize and configure
         // ------------------------------
         glfwInit();
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
         //glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE); // Enable double buffering
@@ -141,6 +142,7 @@ class Renderer {
         GL_camera->MovementSpeed = 1.0f;
         //camera.Front = glm::vec3(-0.373257, -0.393942, -0.826684);
         GL_camera->Front = glm::normalize(glm::vec3(0, 2, 0) - GL_camera->Position);
+        GL_camera->ProcessMouseMovement(0, 0); // to update the right and up vector
 
 
         // set up input handler
@@ -177,10 +179,15 @@ class Renderer {
 
         Initialize_CPURT_camera();
 
+        
+
         InitializeUbo();
 
         // set up the screenCanvas, it will be used to display the ray tracing result (either CPU version or GPU version)
         screenCanvas = new Rect();
+
+
+        GPURT_manager = new GPU_RAYTRACER::RaytraceManager(screen_width, screen_height, GL_camera, screenCanvas);
 
 	}
 
@@ -272,7 +279,14 @@ class Renderer {
 
     void swap_buffers() {
 		glfwSwapBuffers(window);
-	}   
+	}
+
+    void renderCanvas() {
+        screenCanvas->prepareDraw(context);
+        screenCanvas->draw();
+    }
+
+    //void render
 
 	void render(Scene & _scene, bool render_screenCanvas = false) {
         std::vector<Object*> & objects = _scene.objects;
@@ -288,20 +302,13 @@ class Renderer {
         // ------
         
         
-        // if CPU-raytracing is on, we do this 
+        // if CPU-raytracing or GPU-raytracing is on, we do this 
         if (render_screenCanvas && screenCanvas != nullptr) {
             // for a comparison visualization
             // we preserve the color buffer, but clear the depth buffer, because we will draw the screenCanvas on top of the openGL objects
             glClear(GL_DEPTH_BUFFER_BIT); 
-            
-            unsigned char* rendered_output = CPURT_camera->rendered_image;
-            screenCanvas->updateTexture(rendered_output, screen_width, screen_height, 4);
-            context.flipYCoord = true; // because our CPU ray tracing image is flipped (origin at top-left corner, while openGL is at bottom-left corner)
             screenCanvas->prepareDraw(context);
-
-
             screenCanvas->draw();
-
             return; // if ray tracing is enabled, then the screenCanvas will be updated in the ray tracing thread
             // but we don't need to render the openGL objects in this case, so we return here
         }
@@ -407,15 +414,22 @@ class Renderer {
 	}   
 
     void CPURT_render_thread(const Scene& Scene) {
-		CPURT_camera->non_blocking_render(Scene.CPURT_objects, rendering_finished_flag, &Scene.CPURT_skybox);
+		CPURT_camera->non_blocking_render(Scene.CPURT_objects, CPURT_rendering_finished_flag, &Scene.CPURT_skybox);
 
         unsigned char* rendered_output = CPURT_camera->rendered_image;
         if (screenCanvas == nullptr) {
             std::cout<<"ERROR: screenCanvas is nullptr"<<std::endl;
             return;
         }
+        // no matter how many times this function executes, we always use the same texture (owned by this function)
+        // so we don't need to create a new texture every time
+        // and GPU ray tracer will use another texture to display the result
+        if (CPU_rendered_texture == 0) {
+            glGenTextures(1, &CPU_rendered_texture);
+        }
+        screenCanvas->setTexture(CPU_rendered_texture);// first declear this empty texture to be used by the screenCanvas
+        screenCanvas->setTexture(rendered_output, screen_width, screen_height,4); // specify its structure info
         screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
-        screenCanvas->setTexture(rendered_output, screen_width, screen_height,4);
 	}
 
     void set_mouse_input(bool enable) {
@@ -429,22 +443,35 @@ class Renderer {
     }
 
     bool has_RT_render_request_flag() {
-		return RT_render_request_flag;
+		return CPURT_render_request_flag;
 	}
     bool has_reset_request_flag() {
-        return reset_request_flag;
+        return default_render_request_flag;
     }
     bool has_rendering_finished_flag() {
-		return rendering_finished_flag;
+		return CPURT_rendering_finished_flag;
 	}
+    bool has_RT_switch_to_GPU_flag() {
+        return GPURT_render_request_flag;
+    }
     void reset_RT_render_request_flag() {
-        RT_render_request_flag = false;
+        CPURT_render_request_flag = false;
     }
     void reset_reset_request_flag() {
-		reset_request_flag = false;
+		default_render_request_flag = false;
 	}
     void reset_rendering_finished_flag() {
-        rendering_finished_flag = false;
+        CPURT_rendering_finished_flag = false;
+    }
+    void reset_RT_switch_to_GPU_flag() {
+        GPURT_render_request_flag = false;
+    }
+
+    void updateCPUTexture() {
+        unsigned char* rendered_output = CPURT_camera->rendered_image;
+        screenCanvas->setTexture(CPU_rendered_texture);
+        screenCanvas->updateTexture(rendered_output, screen_width, screen_height, 4);
+        context.flipYCoord = true; // because our CPU ray tracing image is flipped (origin at top-left corner, while openGL is at bottom-left corner)
     }
 
 
@@ -453,9 +480,10 @@ class Renderer {
     const bool _vSync = true; // Enable vsync
 
     // some events flag
-    bool RT_render_request_flag = false;
-    bool reset_request_flag = false;
-    bool rendering_finished_flag = false;
+    bool CPURT_render_request_flag = false;
+    bool default_render_request_flag = false;
+    bool CPURT_rendering_finished_flag = false;
+    bool GPURT_render_request_flag = false;
 
     // some control flags
     bool enable_mouse_input = true;
@@ -489,6 +517,9 @@ class Renderer {
     bool isSpaceKeyPressed = false;
     bool isRightKeyPressed = false;
     bool isDownKeyPressed = false;
+
+    // CPU ray tracing camera output texture
+    GLuint CPU_rendered_texture = 0;
 
 };
 
@@ -577,9 +608,9 @@ void Renderer::keyboardActions()
 	    }
 
         if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-	    		enable_camera_movement = false;
-                enable_mouse_input = false;
-	    		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            enable_camera_movement = false;
+            enable_mouse_input = false;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	    }
         if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
             enable_camera_movement = true;
@@ -587,19 +618,28 @@ void Renderer::keyboardActions()
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
 
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-            RT_render_request_flag = true;
+        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+            CPURT_render_request_flag = true;
         }
         else {
-            RT_render_request_flag = false;
+            CPURT_render_request_flag = false;
         }
 
-        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
-            reset_request_flag = true;
+        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+            default_render_request_flag = true;
         }
         else {
-            reset_request_flag = false;
+            default_render_request_flag = false;
 	    }
+
+        if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+            GPURT_render_request_flag = true;
+        }
+        else {
+            GPURT_render_request_flag = false;
+        }
+
+        
 
         if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
             if (!isRightKeyPressed) {

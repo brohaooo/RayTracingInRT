@@ -5,22 +5,37 @@
 
 
 int main() {
-
+    //std::cout<< GPU_RAYTRACER::PrimitiveSize << std::endl;
+    //std::cout<< GPU_RAYTRACER::BVHNodeSize << std::endl;
+    //std::cout<<sizeof(glm::quat(1,0,0,0))<<std::endl;
+    //return 0;
     
     
     Renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
     InputHandler * inputHandler = renderer.inputHandler; // get input handler from renderer
-    Scene Scene; // create Scene object, which contains all the objects in the Scene
+    Scene Scene(1); // create Scene object, which contains all the objects in the Scene
     std::cout<<"scene created"<<std::endl;
     RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
-    state_machine.print_state(); // initial state is idle
+    state_machine.print_state(); // initial state is Default render state
 
-    // TODO: extract event handling to a separate class from renderer
+    
+    
+    renderer.GPURT_manager->loadScene(Scene.objects);
+    renderer.GPURT_manager->compute();
+    //renderer.GPURT_manager->activate();
+    renderer.screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
+    renderer.GPURT_manager->setScreenCanvas(renderer.screenCanvas);
+    renderer.GPURT_manager->activate();
+
 
 
     // main loop
     while (!glfwWindowShouldClose(renderer.window))
     {
+
+
+
+        
         // check last and current state
         std::string last_state = state_machine.get_current_state()->name;
         state_machine.update();
@@ -33,15 +48,15 @@ int main() {
 
 
         // things to do when state changes
-        if (current_state == "idle") {
-            if (last_state == "displaying") {
+        if (current_state == "Default render state") {
+            if (last_state != "Default render state") {
                 renderer.set_camera_movement(true);
                 renderer.set_mouse_input(true);
             }
 
 		}
-        else if (current_state == "CPU_ray_tracing") {
-            if (last_state == "idle") {
+        else if (current_state == "CPU ray-tracing") {
+            if (last_state != "CPU ray-tracing") {
                 // before starting ray tracing, render the scene using openGL rasterization pipeline (for a quick preview)
                 // due to the double buffering, we need to render the scene twice to display the result (otherwise two frames will be recursively displayed)
                 inputHandler->processKeyboardInput(); // update camera position and direction to newest values
@@ -58,39 +73,59 @@ int main() {
                 // such thread will write the output image to an array, and then the main thread will copy the array to the texture
                 // in renderer.render() function's updateTexture() call
 			}
+            renderer.updateCPUTexture(); // update the texture with the ray-tracing result (upload the array to the texture)
 
 		}
-        else if (current_state == "displaying") {
+        else if (current_state == "Displaying CPU ray-tracing result") {
 
-            if (last_state == "CPU_ray_tracing") {
+            if (last_state == "CPU ray-tracing") {
 				renderer.set_keyboard_input(true);
 			}
 
 		}
+        else if (current_state == "GPU_ray_tracing state") {
+            if (last_state != "GPU_ray_tracing state") {
+                
+                // disable input and camera movement for ray tracing
+                renderer.set_mouse_input(true);
+                renderer.set_keyboard_input(true);
+                renderer.set_camera_movement(true);
+                renderer.GPURT_manager->activate();
+            }
+            // start ray tracing thread
+            renderer.GPURT_manager->updateUniforms();
+            renderer.GPURT_manager->compute();
+            
+        }
         else {
 			std::cout << "state not found" << std::endl;
 		}
 
         // common tasks for all states
         inputHandler->processKeyboardInput(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
-        bool CPU_rayTrace_display = current_state == "CPU_ray_tracing" || current_state == "displaying";
-        renderer.render(Scene, CPU_rayTrace_display); // render the scene using openGL rasterization pipeline
-
+        // whether we should display the ray-tracing result on screen canvas or not
+        bool display_screen_canvas = current_state == "CPU ray-tracing" || current_state == "Displaying CPU ray-tracing result" 
+        || current_state == "GPU_ray_tracing state";
+        renderer.render(Scene, display_screen_canvas); // render the scene using openGL rasterization pipeline
 
 
         // process state input by checking the renderer's flags
         if (renderer.has_RT_render_request_flag()) {
-			state_machine.set_input("start_CPU_RT");
+			state_machine.request_start_CPURT();
 			renderer.reset_RT_render_request_flag();
 		}
         if (renderer.has_reset_request_flag()) {
-            state_machine.set_input("stop_display");
+            state_machine.request_start_default_rendering();
             renderer.reset_reset_request_flag();
         }
         if (renderer.has_rendering_finished_flag()) {
-			state_machine.set_input("finish_CPU_RT");
+			state_machine.request_display_CPURT();
 			renderer.reset_rendering_finished_flag();
 		}
+        if (renderer.has_RT_switch_to_GPU_flag()) {
+            state_machine.request_start_GPURT();
+            renderer.reset_RT_switch_to_GPU_flag();
+        }
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

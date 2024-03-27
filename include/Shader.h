@@ -70,6 +70,9 @@ public:
         glDeleteShader(fragment);
 
     }
+    // default constructor, just for inheritance, do nothing
+    Shader() : ID(0) {}
+
     // activate the shader
     // ------------------------------------------------------------------------
     void use() const
@@ -135,7 +138,7 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
     }
 
-private:
+protected:
     // utility function for checking shader compilation/linking errors.
     // ------------------------------------------------------------------------
     void checkCompileErrors(GLuint shader, std::string type)
@@ -162,4 +165,54 @@ private:
         }
     }
 };
+
+
+class ComputeShader : public Shader
+{
+    public:
+    ComputeShader(const char* computePath){
+        std::string computeCode;
+        std::ifstream cShaderFile;
+        cShaderFile.exceptions (std::ifstream::failbit | std::ifstream::badbit);
+        try 
+        {
+            // open files
+            cShaderFile.open(computePath);
+            std::stringstream cShaderStream;
+            // read file's buffer contents into streams
+            cShaderStream << cShaderFile.rdbuf();
+            // close file handlers
+            cShaderFile.close();
+            // convert stream into string
+            computeCode = cShaderStream.str();
+        }
+        catch (std::ifstream::failure& e)
+        {
+            std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ: " << e.what() << std::endl;
+        }
+        const char* cShaderCode = computeCode.c_str();
+        // 2. compile shaders
+        unsigned int compute;
+        // compute shader
+        compute = glCreateShader(GL_COMPUTE_SHADER);
+        glShaderSource(compute, 1, &cShaderCode, NULL);
+        glCompileShader(compute);
+        checkCompileErrors(compute, "COMPUTE");
+        // shader Program
+        ID = glCreateProgram();
+        glAttachShader(ID, compute);
+        glLinkProgram(ID);
+        checkCompileErrors(ID, "PROGRAM");
+        // delete the shaders as they're linked into our program now and no longer necessery
+        glDeleteShader(compute);
+
+    }
+};
+
+
+
+
+
+
+
 #endif
