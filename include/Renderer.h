@@ -429,7 +429,7 @@ class Renderer {
         }
         screenCanvas->setTexture(CPU_rendered_texture);// first declear this empty texture to be used by the screenCanvas
         screenCanvas->setTexture(rendered_output, screen_width, screen_height,4); // specify its structure info
-        screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
+        screenCanvas->setShader(new Shader("../../shaders/texture_display.vert", "../../shaders/texture_display.frag"));
 	}
 
     void set_mouse_input(bool enable) {

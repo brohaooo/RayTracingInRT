@@ -53,13 +53,13 @@ class Scene {
 
         // skybox
         Skybox* skybox = new Skybox();
-        skybox->setShader(new Shader("../../shaders/skybox_shader.vs", "../../shaders/skybox_shader.fs"));
+        skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
         skybox->setTexture("../../resource/skybox");
 
 
         // the ground sphere
         Sphere* sphereObject1 = new Sphere();
-        sphereObject1->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject1->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
         sphereObject1->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
         sphereObject1->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
 
@@ -67,7 +67,7 @@ class Scene {
 
         // light sphere (for light source visualization)
         Sphere* sphereObject2 = new Sphere();
-        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
         sphereObject2->setColor(glm::vec4(2, 2, 2, 1.0));
         sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(2, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.8, 0.8, 0.8)));
 
@@ -76,13 +76,13 @@ class Scene {
 
         Model* teapot = new Model("../../resource/teapot.obj");
         teapot->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
-        teapot->setShader(new Shader("../../shaders/mesh_shader.vs", "../../shaders/mesh_shader.fs"));
+        teapot->setShader(new Shader("../../shaders/mesh_shader.vert", "../../shaders/mesh_shader.frag"));
         objects.push_back(teapot);
 
 
         //Model* fish = new Model("../../resource/Amago0.obj");
         //fish->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(5.01, 5.01, 5.01)));
-        //fish->setShader(new Shader("../../shaders/mesh_shader.vs", "../../shaders/mesh_shader.fs"));
+        //fish->setShader(new Shader("../../shaders/mesh_shader.vert", "../../shaders/mesh_shader.frag"));
         //objects.push_back(fish);
 
 
@@ -144,7 +144,7 @@ class Scene {
 
         // skybox
         Skybox * skybox = new Skybox();
-        skybox->setShader(new Shader("../../shaders/skybox_shader.vs", "../../shaders/skybox_shader.fs"));
+        skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
 		skybox->setTexture("../../resource/skybox");
 
 
@@ -153,19 +153,19 @@ class Scene {
         // create openGL objects for the above ray tracing objects
         // the glass sphere
         Sphere * sphereObject = new Sphere();
-        sphereObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
         sphereObject->setColor(glm::vec4(0.3, 0.4, 0.8, 0.2));
         sphereObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         
         // the ground sphere
         Sphere * sphereObject2 = new Sphere();
-        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
         sphereObject2->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
         sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
         
         // the earth sphere
         Sphere* sphereObject3 = new Sphere();
-        sphereObject3->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/texture_shader.fs"));
+        sphereObject3->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/texture_shader.frag"));
         sphereObject3->setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
         sphereObject3->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         sphereObject3->setTexture("../../resource/earthmap.jpg");
@@ -174,21 +174,21 @@ class Scene {
 
         // the metal sphere
         Sphere* sphereObject4 = new Sphere();
-        sphereObject4->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject4->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
         sphereObject4->setColor(glm::vec4(0.7, 0.6, 0.5, 1.0));
         sphereObject4->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
 
         //diffuse light sphere
         Sphere* sphereObject5 = new Sphere();
-        sphereObject5->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
+        sphereObject5->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
         sphereObject5->setColor(glm::vec4(2, 2, 2, 1.0));
         sphereObject5->setModel(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
 
 
 
         Triangle* triangleObject = new Triangle(v0, v1, v2);
-        triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/shader.fs"));
-        //triangleObject->setShader(new Shader("../../shaders/texture_shader.vs", "../../shaders/texture_shader.fs"));
+        triangleObject->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
+        //triangleObject->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/texture_shader.frag"));
         triangleObject->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
         triangleObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         //triangleObject->setTexture("../../resource/earthmap.jpg");

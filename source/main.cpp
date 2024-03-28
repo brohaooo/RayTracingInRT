@@ -22,7 +22,7 @@ int main() {
     
     renderer.GPURT_manager->loadScene(Scene.objects);
     renderer.GPURT_manager->compute();
-    renderer.screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
+    renderer.screenCanvas->setShader(new Shader("../../shaders/texture_display.vert", "../../shaders/texture_display.frag"));
     renderer.GPURT_manager->setScreenCanvas(renderer.screenCanvas);
 
 
