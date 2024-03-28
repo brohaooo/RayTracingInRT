@@ -61,9 +61,9 @@ namespace CPU_RAYTRACER {
 	  public:
 	    glm::vec3 p;
 	    glm::vec3 normal;
-	    shared_ptr<material> mat;
 	    float t;
 	    bool front_face;
+		shared_ptr<material> mat;
 		float u, v;
 
 		glm::vec3 color;// for skybox only

@@ -34,7 +34,7 @@ namespace GPU_RAYTRACER{
 
     // encoded primitive data
     struct Primitive {
-        glm::vec3 primitiveInfo; // x: primitive type(0: triangle, 1: sphere), y: material type(lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
+        glm::vec3 primitiveInfo; // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
         glm::vec3 baseColor;     // base color of the material
         glm::vec3 v0, v1, v2;    // position (if sphere, v0: center, vec4(v1.xyz + v2.x): quaternion rotation, v2.y: radius)
         glm::vec3 n1, n2, n3;    // normal (if sphere, these are not used)

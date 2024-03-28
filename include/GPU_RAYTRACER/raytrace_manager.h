@@ -27,7 +27,7 @@ namespace GPU_RAYTRACER{
             // generate the texture buffer for the primitives
             glGenBuffers(1, &primitiveBuffer);
             glBindBuffer(GL_TEXTURE_BUFFER, primitiveBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, encodedPrimitives.size() * PrimitiveSize, encodedPrimitives.data(), GL_STATIC_DRAW);
+            //glBufferData(GL_TEXTURE_BUFFER, encodedPrimitives.size() * PrimitiveSize, encodedPrimitives.data(), GL_STATIC_DRAW);
             glGenTextures(1, &primitiveTexture);
             glBindTexture(GL_TEXTURE_BUFFER, primitiveTexture);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, primitiveBuffer);
@@ -67,7 +67,7 @@ namespace GPU_RAYTRACER{
                     Triangle * triangle = dynamic_cast<Triangle*>(objects[i]);
                     // encode the triangle to the primitive struct
                     Primitive primitive;
-                    primitive.primitiveInfo = glm::vec3(0, 0, 0); // 0: triangle, 0: lambertian
+                    primitive.primitiveInfo = glm::vec3(0, 0, 0); // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
                     primitive.baseColor = triangle->color;
                     primitive.v0 = triangle->v0;
                     primitive.v1 = triangle->v1;
@@ -90,8 +90,8 @@ namespace GPU_RAYTRACER{
                     primitive.primitiveInfo = glm::vec3(1, 0, 0); // 1: sphere, 0: lambertian
                     primitive.baseColor = sphere->color;
                     primitive.v0 = glm::vec3(model[3][0], model[3][1], model[3][2]);
-                    primitive.v1 = glm::vec3(rotation.x, rotation.y, rotation.z); // rotation quaternion's xyz
-                    primitive.v2 = glm::vec3(rotation.w, model[0][0], 0); // rotation quaternion's w, and the radius (the sphere is scaled uniformly, so we can get the radius from any of the scale values)
+                    primitive.v1 = glm::vec3(1, 2, 3); // rotation quaternion's xyz
+                    primitive.v2 = glm::vec3(4, model[0][0], 0); // rotation quaternion's w, and the radius (the sphere is scaled uniformly, so we can get the radius from any of the scale values)
                     primitive.n1 = glm::vec3(0,0,0); // not used
                     primitive.n2 = glm::vec3(0,0,0); // not used
                     primitive.n3 = glm::vec3(0,0,0); // not used
@@ -129,15 +129,21 @@ namespace GPU_RAYTRACER{
         // with its gpu ray tracing shader, render the scene (two passes: first pass for ray tracing, second pass for displaying the result)
         // the first pass: it will write the result to the 'renderTexture'
         void compute(){
+            // increment the frame counter
+            frameCounter++;
+            updateUniforms();
             // bind the compute shader
             raytraceComputeShader->use();
             // bind the render texture
             glBindImageTexture(2, renderTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-            // bind the skybox texture
+            // bind the skybox texture to texture unit 1
             if (hasSkybox){
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
             }
+            // bind the primitive texture to texture unit 0
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_BUFFER, primitiveTexture);
 
             // dispatch the compute shader, local size is 16x16x1
             glDispatchCompute((width + 15) / 16, (height + 15) / 16, 1);
@@ -191,8 +197,17 @@ namespace GPU_RAYTRACER{
             raytraceComputeShader->setBool("hasSkybox", hasSkybox);
             raytraceComputeShader->setInt("imageWidth", width);
             raytraceComputeShader->setInt("imageHeight", height);
-        };
+            raytraceComputeShader->setInt("primitiveCount", encodedPrimitives.size());
+            raytraceComputeShader->setInt("bvhNodeCount", bvhNodes.size());
+            raytraceComputeShader->setInt("maxDepth", 5);
+            raytraceComputeShader->setInt("frameCounter", frameCounter);
+            // upload a time
+            float time = glfwGetTime();
+            raytraceComputeShader->setFloat("time", time);
 
+            //std::cout<<"primitive count: "<<encodedPrimitives.size()<<std::endl;
+        };
+        
 
 
         // set shaders for the ray tracing pipeline: compute shader for ray tracing, vertex/fragment shaders for displaying the result
@@ -217,8 +232,11 @@ namespace GPU_RAYTRACER{
             screenCanvas->texture = 0;
             screenCanvas->hasTexture = false;
         }
-        GLuint renderTexture; // texture to render the result of the ray tracing
+        void resetFrameCounter(){
+            frameCounter = 0;
+        };
     private:
+        GLuint renderTexture; // texture to render the result of the ray tracing
         GLuint bvhBuffer; // ssbo for bvh nodes
         GLuint primitiveBuffer; // tbo for primitives (triangles/spheres)
         GLuint primitiveTexture; // texture buffer for the primitives
@@ -238,6 +256,7 @@ namespace GPU_RAYTRACER{
         const Camera * camera;
         // width and height of the render texture
         int width, height;
+        int frameCounter = 0;
         
 
 

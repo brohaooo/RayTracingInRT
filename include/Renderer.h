@@ -492,7 +492,6 @@ class Renderer {
 
     // input callback functions
     void adjust_window_size(int width, int height);
-    static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     void move_camera(double xpos, double ypos);
     void adjust_fov(double yoffset);
     void keyboardActions();
@@ -536,17 +535,14 @@ void Renderer::adjust_window_size(int width, int height)
     updateUboData();
     // update the ray tracing camera
     update_CPURT_camera();
+    // reset the frame count for GPU ray tracing
+    if (GPURT_manager != nullptr) {
+        GPURT_manager->resetFrameCounter();
+        GPURT_manager->changeScreenSize(width, height);
+    }
     
 }
-void Renderer::framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    // 获取类实例指针
-    Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
 
-    // 调用实例的成员函数
-    if (renderer) {
-        renderer->adjust_window_size(width, height);
-    }
-}
 
 
 // glfw: whenever the mouse moves, this callback is called
@@ -570,8 +566,10 @@ void Renderer::move_camera(double xposIn, double yposIn)
     lastY = ypos;
     if (enable_mouse_input) {
         GL_camera->ProcessMouseMovement(xoffset, yoffset);
+        if(this->GPURT_manager != nullptr) {
+            this->GPURT_manager->resetFrameCounter();
+        }
     }
-    
 }
 
 
@@ -583,6 +581,9 @@ void Renderer::adjust_fov(double yoffset)
 {
     if (enable_mouse_input){
         GL_camera->ProcessMouseScroll(static_cast<float>(yoffset));
+        if (this->GPURT_manager != nullptr) {
+            this->GPURT_manager->resetFrameCounter();
+        }
     }
 }
 
@@ -593,18 +594,37 @@ void Renderer::keyboardActions()
             glfwSetWindowShouldClose(window, true);
 
         if (enable_camera_movement) {
-	    	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-	    		GL_camera->ProcessKeyboard(FORWARD, deltaTime);
-	    	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-	    		GL_camera->ProcessKeyboard(BACKWARD, deltaTime);
-	    	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-	    		GL_camera->ProcessKeyboard(LEFT, deltaTime);
-	    	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-	    		GL_camera->ProcessKeyboard(RIGHT, deltaTime);
-	    	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-	    		GL_camera->ProcessKeyboard(UP, deltaTime);
-	    	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-	    		GL_camera->ProcessKeyboard(DOWN, deltaTime);
+            bool camera_moved = false;
+	    	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
+                GL_camera->ProcessKeyboard(FORWARD, deltaTime);
+                camera_moved = true;
+            }
+	    		
+	    	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
+                GL_camera->ProcessKeyboard(BACKWARD, deltaTime);
+                camera_moved = true;
+            }
+	    	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
+                GL_camera->ProcessKeyboard(LEFT, deltaTime);
+                camera_moved = true;
+            }
+	    	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
+                GL_camera->ProcessKeyboard(RIGHT, deltaTime);
+                camera_moved = true;
+            }
+	    	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS){
+                GL_camera->ProcessKeyboard(UP, deltaTime);
+                camera_moved = true;
+            }
+	    	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS){
+                GL_camera->ProcessKeyboard(DOWN, deltaTime);
+                camera_moved = true;
+            }
+            if (camera_moved) {
+                if(this->GPURT_manager != nullptr) {
+                    this->GPURT_manager->resetFrameCounter();
+                }
+            }
 	    }
 
         if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {

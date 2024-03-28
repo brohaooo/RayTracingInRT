@@ -13,7 +13,7 @@ int main() {
     
     Renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
     InputHandler * inputHandler = renderer.inputHandler; // get input handler from renderer
-    Scene Scene(1); // create Scene object, which contains all the objects in the Scene
+    Scene Scene; // create Scene object, which contains all the objects in the Scene
     std::cout<<"scene created"<<std::endl;
     RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
     state_machine.print_state(); // initial state is Default render state
@@ -22,10 +22,8 @@ int main() {
     
     renderer.GPURT_manager->loadScene(Scene.objects);
     renderer.GPURT_manager->compute();
-    //renderer.GPURT_manager->activate();
     renderer.screenCanvas->setShader(new Shader("../../shaders/texture_display.vs", "../../shaders/texture_display.fs"));
     renderer.GPURT_manager->setScreenCanvas(renderer.screenCanvas);
-    renderer.GPURT_manager->activate();
 
 
 
@@ -91,9 +89,9 @@ int main() {
                 renderer.set_keyboard_input(true);
                 renderer.set_camera_movement(true);
                 renderer.GPURT_manager->activate();
+                renderer.GPURT_manager->resetFrameCounter();
             }
             // start ray tracing thread
-            renderer.GPURT_manager->updateUniforms();
             renderer.GPURT_manager->compute();
             
         }

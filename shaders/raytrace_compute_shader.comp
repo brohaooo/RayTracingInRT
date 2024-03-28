@@ -10,14 +10,332 @@ uniform float aspectRatio;
 uniform int imageWidth;
 uniform int imageHeight;
 uniform bool hasSkybox;
+uniform int primitiveCount;
+uniform int bvhNodeCount;
+uniform int maxDepth;
+
+uniform int frameCounter; // from 1 to inf
+uniform float time;
 
 uniform samplerCube skyboxTexture;
 uniform samplerBuffer primitiveBuffer;
 
 
+#define PRIMITIVE_LENGTH 11
+#define PI 3.14159265359
+#define EPSILON 0.0000001
+
+
 layout(binding = 2, rgba32f) uniform image2D outputImage;
 
-//struct Primitive
+
+
+// ----------------------------------------------------------------------------- //
+
+/*
+ * 生成随机向量，依赖于 frameCounter 帧计数器
+ * 代码来源：https://blog.demofox.org/2020/05/25/casual-shadertoy-path-tracing-1-basic-camera-diffuse-emissive/
+*/
+
+uint seed = uint(
+    uint((gl_GlobalInvocationID.x * 0.5 + 0.5) * imageWidth)  * uint(1973) + 
+    uint((gl_GlobalInvocationID.y * 0.5 + 0.5) * imageHeight) * uint(9277) + 
+    uint(frameCounter) * uint(26699)) | uint(1);
+
+uint wang_hash(inout uint seed) {
+    seed = uint(seed ^ uint(61)) ^ uint(seed >> uint(16));
+    seed *= uint(9);
+    seed = seed ^ (seed >> 4);
+    seed *= uint(0x27d4eb2d);
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
+ 
+float rand() {
+    return float(wang_hash(seed)) / 4294967296.0;
+}
+
+// 半球均匀采样
+vec3 SampleHemisphere() {
+    float z = rand();
+    float r = max(0, sqrt(1.0 - z*z));
+    float phi = 2.0 * PI * rand();
+    return vec3(r * cos(phi), r * sin(phi), z);
+}
+
+// 将向量 v 投影到 N 的法向半球
+vec3 toNormalHemisphere(vec3 v, vec3 N) {
+    vec3 helper = vec3(1, 0, 0);
+    if(abs(N.x)>0.999) helper = vec3(0, 0, 1);
+    vec3 tangent = normalize(cross(N, helper));
+    vec3 bitangent = normalize(cross(N, tangent));
+    return v.x * tangent + v.y * bitangent + v.z * N;
+}
+
+// ----------------------------------------------------------------------------- //
+
+
+
+
+
+
+struct Sphere {
+    vec3 center;
+    float radius;
+    vec4 quaternion;
+    vec3 baseColor;
+    int materialType;
+    float fuzziness;
+};
+
+struct Triangle {
+    vec3 v0;
+    vec3 v1;
+    vec3 v2;
+    vec3 n0;
+    vec3 n1;
+    vec3 n2;
+    vec2 t0;
+    vec2 t1;
+    vec2 t2;
+    vec3 baseColor;
+    int materialType;
+    float fuzziness;
+};
+
+Sphere getSphere(int index) {
+    Sphere sphere;
+    vec4 tmp;
+    tmp = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH);
+    sphere.materialType = int(tmp.y);
+    sphere.fuzziness = tmp.z;
+    sphere.baseColor = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 1).xyz;
+    sphere.center = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
+    sphere.quaternion.xyz = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 3).xyz;
+    tmp = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4);
+    sphere.quaternion.w = tmp.x;
+    sphere.radius = tmp.y;
+    return sphere;
+}
+
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+struct HitRecord {
+    vec3 p;
+    vec3 normal;
+    float t;
+    bool frontFace;
+    vec3 color;
+    int materialType;
+    float fuzziness;
+    float u, v;
+};
+
+struct SphereGeometry{
+    vec3 center;
+    float radius;
+};
+
+struct TriangleGeometry{
+    vec3 v0;
+    vec3 v1;
+    vec3 v2;
+    vec3 faceNormal;
+};
+
+
+struct BVHNode{
+    int index;
+    int left;
+    int right;
+    int n;
+    vec3 AA, BB;
+};
+
+
+// get the geometry of the sphere: center, radius
+// return: vec4(center.x, center.y, center.z, radius)
+SphereGeometry getSphereGeometry(int index) {
+    SphereGeometry geometry;
+    geometry.center = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
+    geometry.radius = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4).y;
+    return geometry;
+}
+
+Triangle getTriangle(int index) {
+    Triangle triangle;
+    vec4 tmp;
+    tmp = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH);
+    triangle.materialType = int(tmp.y);
+    triangle.fuzziness = tmp.z;
+    triangle.baseColor = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 1).xyz;
+    triangle.v0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
+    triangle.v1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 3).xyz;
+    triangle.v2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4).xyz;
+    triangle.n0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 5).xyz;
+    triangle.n1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 6).xyz;
+    triangle.n2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 7).xyz;
+    triangle.t0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 8).xy;
+    triangle.t1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 9).xy;
+    triangle.t2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 10).xy;
+    return triangle;
+}
+
+// get the geometry of the triangle: v0, v1, v2
+TriangleGeometry getTriangleGeometry(int index){
+    TriangleGeometry geometry;
+    geometry.v0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
+    geometry.v1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 3).xyz;
+    geometry.v2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4).xyz;
+    geometry.faceNormal = normalize(cross(geometry.v1 - geometry.v0, geometry.v2 - geometry.v0));
+    return geometry;
+
+}
+
+
+vec4 normalizeQuat(vec4 q) {
+    return q / length(q);
+}
+vec4 quatInverse(vec4 q) {
+    q = normalizeQuat(q);
+    return vec4(q.w, -q.x, -q.y, -q.z);
+}
+
+vec4 quatMul(vec4 q1, vec4 q2) {
+    return vec4(
+        q1.w*q2.x + q1.x*q2.w + q1.y*q2.z - q1.z*q2.y,
+        q1.w*q2.y - q1.x*q2.z + q1.y*q2.w + q1.z*q2.x,
+        q1.w*q2.z + q1.x*q2.y - q1.y*q2.x + q1.z*q2.w,
+        q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z
+    );
+}
+
+vec3 rotatePointByQuat(vec3 p, vec4 q) {
+    vec4 pQuat = vec4(0.0, p.x, p.y, p.z);
+    vec4 qInv = quatInverse(q);
+    vec4 pRotatedQuat = quatMul(quatMul(q, pQuat), qInv);
+    return pRotatedQuat.yzw; // 仅返回向量部分
+}
+
+// ray-sphere intersection
+bool hitSphere(Sphere sphere, Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+    vec3 oc = ray.origin - sphere.center;
+    float a = dot(ray.direction, ray.direction);
+    float b = 2.0 * dot(oc, ray.direction);
+    float c = dot(oc, oc) - sphere.radius * sphere.radius;
+    float discriminant = b * b - 4.0 * a * c;
+    if (discriminant > 0.0) {
+        float temp = (-b - sqrt(discriminant)) / (2.0 * a);
+        if (temp > tMax || temp < tMin) {
+            temp = (-b + sqrt(discriminant)) / (2.0 * a);
+            }
+        if (temp > tMax || temp < tMin) {
+            return false;
+        }
+        hitRecord.t = temp;
+        hitRecord.p = ray.origin + temp * ray.direction;
+        hitRecord.normal = normalize(hitRecord.p - sphere.center);
+        hitRecord.color = sphere.baseColor;
+        hitRecord.materialType = sphere.materialType;
+        hitRecord.fuzziness = sphere.fuzziness;
+        hitRecord.frontFace = dot(ray.direction, hitRecord.normal) < 0.0;
+        if (!hitRecord.frontFace) {
+            hitRecord.normal = -hitRecord.normal;
+        }
+        if (false) {// not implemented texture material yet
+            vec4 rotation = sphere.quaternion;
+            vec3 hitPointObjectSpace = rotatePointByQuat(hitRecord.normal, quatInverse(rotation));
+            float theta = acos(hitPointObjectSpace.y);
+  		    float phi = atan(-hitPointObjectSpace.z, -hitPointObjectSpace.x) + PI;
+            hitRecord.u = phi / (2.0 * PI);
+            hitRecord.v = theta / PI;
+        }
+        return true;
+    }
+    return false;
+}
+
+// ray-triangle intersection
+// Möller-Trumbore: https://blog.csdn.net/zhanxi1992/article/details/109903792
+bool hitTriangle(Triangle triangle, Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+    vec3 E1, E2, S1, S, S2, origin, D;
+    float S1E1, inv_S1E1, b1, b2, t;
+    origin = ray.origin;
+    D = ray.direction;
+    E1 = triangle.v1 - triangle.v0;
+    E2 = triangle.v2 - triangle.v0;
+    S1 = cross(D, E2);
+    S1E1 = dot(S1, E1); 
+    if (S1E1 > -EPSILON && S1E1 < EPSILON) {
+        return false;
+    }
+    inv_S1E1 = 1.0 / S1E1;
+    S = origin - triangle.v0;
+    b1 = dot(S, S1) * inv_S1E1;
+    if (b1 < 0.0 || b1 > 1.0) {
+        return false;
+    }
+    S2 = cross(S, E1);
+    b2 = dot(D, S2) * inv_S1E1;
+    if (b2 < 0.0 || b1 + b2 > 1.0) {
+        return false;
+    }
+    t = dot(E2, S2) * inv_S1E1;
+    if (t < tMin || t > tMax) {
+        return false;
+    }
+    vec3 normal;
+    if (triangle.n0 == vec3(0.0)) {// if the normal is not provided, we will use face normal
+        normal = normalize(cross(E1, E2));
+    } else {
+        float b0 = 1.0 - b1 - b2;
+        normal = normalize(b0 * triangle.n0 + b1 * triangle.n1 + b2 * triangle.n2);
+    }
+    if (dot(ray.direction, normal) >= 0.0) {
+        return false;// enable this line to disable back face (back face culling)
+    }
+
+
+    hitRecord.t = t;
+    hitRecord.p = ray.origin + t * ray.direction;
+    hitRecord.normal = normal;
+    hitRecord.color = triangle.baseColor;
+    hitRecord.materialType = triangle.materialType;
+    hitRecord.fuzziness = triangle.fuzziness;
+    hitRecord.frontFace = dot(ray.direction, hitRecord.normal) < 0.0;
+    if (!hitRecord.frontFace) {
+        hitRecord.normal = -hitRecord.normal;
+    }
+    // not implemented texture material yet
+    if (false) {
+        float b0 = 1.0 - b1 - b2;
+        vec2 uv = b0 * triangle.t0 + b1 * triangle.t1 + b2 * triangle.t2;
+        hitRecord.u = uv.x;
+        hitRecord.v = uv.y;
+    }
+    return true;
+}
+
+// hit scene
+bool hitScene(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+    bool hit = false;
+    float closest = tMax;
+    HitRecord tempRecord;
+    for(int i = 0;i<primitiveCount;i++){
+        Sphere sphere = getSphere(i);
+        if (hitSphere(sphere, ray, tMin, closest, tempRecord)) {
+            hit = true;
+            closest = tempRecord.t;
+            hitRecord = tempRecord;
+        }
+    }
+    return hit;
+}
+
+
 
 
 
@@ -35,27 +353,50 @@ void main() {
 
     // compute the ray direction via the camera parameters
     float tanFov = tan(radians(fov) / 2.0);
-    vec3 rayDir = normalize(cameraFront + tanFov * ndcCoord.x * aspectRatio * cross(cameraFront, cameraUp) + tanFov * ndcCoord.y * cameraUp);
-
+    // add random offset to the ray direction to enable anti-aliasing
+    vec2 pixelSample = vec2((rand()-0.5)/float(imageWidth), (rand()-0.5)/float(imageHeight));
+    pixelSample *= 2;
+    vec2 sampledCoord = vec2(ndcCoord.x + pixelSample.x, ndcCoord.y + pixelSample.y);
+    vec3 rayDir = normalize(cameraFront + tanFov * sampledCoord.x * aspectRatio * cross(cameraFront, cameraUp) + tanFov * sampledCoord.y * cameraUp);
 
     // ray tracing
+    vec3 color;
 
 
-
-
-
-
-
-    // just get the color from the skybox
-    if (hasSkybox) {
-        vec3 color = texture(skyboxTexture, rayDir).rgb;
-        imageStore(outputImage, texCoord, vec4(color, 1.0));
+    Sphere sphere = getSphere(1);
+    Ray ray;
+    ray.origin = cameraPos;
+    ray.direction = rayDir;
+    HitRecord hitRecord;
+    float tMin = 0.0;
+    float tMax = 10000.0;
+    bool hit = false;
+    if (hitTriangle(getTriangle(0), ray, tMin, tMax, hitRecord)) {
+        hit = true;
+        tMax = hitRecord.t;
+    }
+    for(int i = 1;i<primitiveCount;i++){
+        Sphere sphere = getSphere(i);
+        if (hitSphere(sphere, ray, tMin, tMax, hitRecord)) {
+            hit = true;
+            tMax = hitRecord.t;
+        }
+    }
+    if(hit){
+        imageStore(outputImage, texCoord, vec4(hitRecord.color, 1.0));
         return;
     }
 
-    
+    // just get the color from the skybox
+    if (hasSkybox) {
+        color = texture(skyboxTexture, rayDir).rgb;
+    }
 
     
+    // mix the color with the last frame (temporal denoising)
+    vec3 lastColor = imageLoad(outputImage, texCoord).rgb;
+    color = mix(lastColor, color, 1.0/float(frameCounter));
     
+    imageStore(outputImage, texCoord, vec4(color, 1.0));
     return;
 }
