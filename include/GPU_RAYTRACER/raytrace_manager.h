@@ -27,7 +27,6 @@ namespace GPU_RAYTRACER{
             // generate the texture buffer for the primitives
             glGenBuffers(1, &primitiveBuffer);
             glBindBuffer(GL_TEXTURE_BUFFER, primitiveBuffer);
-            //glBufferData(GL_TEXTURE_BUFFER, encodedPrimitives.size() * PrimitiveSize, encodedPrimitives.data(), GL_STATIC_DRAW);
             glGenTextures(1, &primitiveTexture);
             glBindTexture(GL_TEXTURE_BUFFER, primitiveTexture);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, primitiveBuffer);
@@ -131,6 +130,7 @@ namespace GPU_RAYTRACER{
         void compute(){
             // increment the frame counter
             frameCounter++;
+            // set the uniforms for the compute shader (update the camera, frame count, screen size, etc.)
             updateUniforms();
             // bind the compute shader
             raytraceComputeShader->use();
@@ -167,6 +167,15 @@ namespace GPU_RAYTRACER{
             raytraceComputeShader->setInt("primitiveBuffer", 0);
             glBindTexture(GL_TEXTURE_BUFFER, 0);
             // upload the bvh nodes
+            // TLAS: top level acceleration structure, can be updated frequently as scene changes or meshes move
+
+
+
+            // BLAS: bottom level acceleration structure, should be static, can be updated rarely, e.g. when a mesh is added or removed
+
+
+            
+
             // upload the skybox texture
             if (hasSkybox){
                 glActiveTexture(GL_TEXTURE1); // skybox texture will be bound to texture unit 1, we specify this in the shader
@@ -176,9 +185,6 @@ namespace GPU_RAYTRACER{
             }
             // set the uniforms for the compute shader
             updateUniforms();
-
-
-            // upload the bvh nodes
 
             
         };

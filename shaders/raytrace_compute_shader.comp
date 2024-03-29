@@ -19,6 +19,8 @@ uniform float time;
 
 uniform samplerCube skyboxTexture;
 uniform samplerBuffer primitiveBuffer;
+uniform samplerBuffer TLASBuffer; // top level acceleration structure buffer, containing BVH nodes for mesh instances
+uniform samplerBuffer BLASBuffer; // bottom level acceleration structure buffer, containing BVH nodes for triangles
 
 
 #define PRIMITIVE_LENGTH 11
@@ -103,6 +105,10 @@ struct Triangle {
     float fuzziness;
 };
 
+int getPrimitiveType(int index) {// 0 for triangle, 1 for sphere
+    return int(texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH).x);
+}
+
 Sphere getSphere(int index) {
     Sphere sphere;
     vec4 tmp;
@@ -147,12 +153,24 @@ struct TriangleGeometry{
 };
 
 
-struct BVHNode{
-    int index;
+struct BLASNode{
     int left;
     int right;
-    int n;
+    int n; // number of primitives in the node
+    int primitiveIndex; // the index of the first primitive in the node
     vec3 AA, BB;
+};
+
+struct TLASNode{
+    int left; // -1 if the node is a leaf
+    int right; // -1 if the node is a leaf
+    int BLASIndex; // if the node is a leaf, this is the index of the BLAS node, otherwise, it is -1
+    mat4 transform; // if the node is a leaf, this is the transformation matrix, otherwise, it is the identity matrix
+    vec3 baseColor; // if the node is a leaf, this is the base color, otherwise, it is (0, 0, 0)
+    int materialType; // if the node is a leaf, this is the material type, otherwise, it is -1
+    int textureIndex; // if the node is a leaf and it has texture, this is the index of the texture, otherwise, it is -1
+    float fuzziness; // if the node is a leaf, this is the fuzziness of the metal material, otherwise, it is -1
+    vec3 AA, BB; // the axis-aligned bounding box of the node in the world space
 };
 
 
@@ -319,26 +337,126 @@ bool hitTriangle(Triangle triangle, Ray ray, float tMin, float tMax, inout HitRe
     return true;
 }
 
-// hit scene
-bool hitScene(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+// get intersection point of ray and AABB (in t, if not intersect, return -1)
+float hitAABB(Ray r, vec3 AA, vec3 BB) {
+    vec3 invdir = 1.0 / r.direction;
+
+    vec3 f = (BB - r.origin) * invdir;
+    vec3 n = (AA - r.origin) * invdir;
+
+    vec3 tmax = max(f, n);
+    vec3 tmin = min(f, n);
+
+    float t1 = min(tmax.x, min(tmax.y, tmax.z));
+    float t0 = max(tmin.x, max(tmin.y, tmin.z));
+
+    return (t1 >= t0) ? ((t0 > 0.0) ? (t0) : (t1)) : (-1);
+}
+
+// hit the primitive array, the primitives to check should be sequential in the array from l to r
+// this is ensured by CPU's BVH construction which will sort the primitives
+bool hitPrimitiveArray(Ray ray, int l, int r, float tMin, float tMax, inout HitRecord hitRecord){
     bool hit = false;
-    float closest = tMax;
-    HitRecord tempRecord;
-    for(int i = 0;i<primitiveCount;i++){
-        Sphere sphere = getSphere(i);
-        if (hitSphere(sphere, ray, tMin, closest, tempRecord)) {
-            hit = true;
-            closest = tempRecord.t;
-            hitRecord = tempRecord;
+    for (int i = l; i <= r; i++) {
+        int primitiveType = getPrimitiveType(i);
+        if (primitiveType == 0) {
+            Triangle triangle = getTriangle(i);
+            if (hitTriangle(triangle, ray, tMin, tMax, hitRecord)) {
+                tMax = hitRecord.t;
+                hit = true;
+            }
+        } 
+        else if (primitiveType == 1) {
+            Sphere sphere = getSphere(i);
+            if (hitSphere(sphere, ray, tMin, tMax, hitRecord)) {
+                tMax = hitRecord.t;
+                hit = true;
+            }
         }
+
     }
+    
     return hit;
 }
 
+// BVH traversal, not implemented yet, it now just hits all the primitives
+bool hitBVH(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+    return hitPrimitiveArray(ray, 0, primitiveCount - 1, tMin, tMax, hitRecord);
+}
+
+float reflectance(float cosine, float refIdx) {
+    float r0 = (1.0 - refIdx) / (1.0 + refIdx);
+    r0 = r0 * r0;
+    return r0 + (1.0 - r0) * pow((1.0 - cosine), 5.0);
+}
+
+// path tracing, return the color of the pixel sampled by the Monte Carlo path tracing
+// forget about PBR and BRDF for now, let's just use Lambertian Reflection aka Perfect Diffuse Reflection
+vec3 rayColor(Ray ray, int maxBounce){
+    vec3 color = vec3(0.0);
+    vec3 attenuation = vec3(1.0);
+    for (int i = 0; i < maxBounce; i++) {
+        HitRecord hitRecord;
+        if (hitBVH(ray, 0.001, 10000.0, hitRecord)) {
+            vec3 hitPos = hitRecord.p;
+            vec3 normal = hitRecord.normal;
+            // do scattering according to the material
+            if (hitRecord.materialType == 0) {
+                // Lambertian Reflection
+                vec3 target = hitPos + normal + SampleHemisphere();
+                ray.origin = hitPos;
+                ray.direction = target - hitPos;
+                attenuation *= hitRecord.color;
+            } else if (hitRecord.materialType == 1) {
+                // Metal
+                vec3 reflected = reflect(normalize(ray.direction), normal);
+                ray.origin = hitPos;
+                ray.direction = reflected + hitRecord.fuzziness * SampleHemisphere();
+                attenuation *= hitRecord.color;
+            } else if (hitRecord.materialType == 2) {
+                // Dielectric
+                float refractionRatio = hitRecord.frontFace ? (1.0 / 1.5) : 1.5;
+                vec3 unitDirection = normalize(ray.direction);
+                float cosTheta = min(dot(-unitDirection, normal), 1.0);
+                float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+                bool cannotRefract = refractionRatio * sinTheta > 1.0;
+                vec3 direction;
+                if (cannotRefract || reflectance(cosTheta, refractionRatio) > rand()) {
+                    direction = reflect(unitDirection, normal);
+                } else {
+                    direction = refract(unitDirection, normal, refractionRatio);
+                }
+                ray.origin = hitPos;
+                ray.direction = direction;
+                attenuation *= hitRecord.color;
+            }
+            else {
+                // show a red color if the material type is not recognized
+                attenuation = vec3(1.0, 0.0, 0.0);
+            }
+            // if the hitRecord is a light source, we will add the light source color to the pixel color
+            if (hitRecord.materialType == 3) {
+                color += attenuation;
+            }
+           
+        } 
+        else {
+            if (hasSkybox) {
+                color += attenuation * texture(skyboxTexture, ray.direction).rgb;
+            }
+            else{
+                vec3 unitDirection = normalize(ray.direction);
+                float t = 0.5 * (unitDirection.y + 1.0);
+                color += (1.0 - t) * vec3(1.0) + t * vec3(0.5, 0.7, 1.0);
+            }
+            break;
+        }
+    }
 
 
+    return color;
 
-
+}
 
 void main() {
     // get the pixel coordinate
@@ -348,7 +466,8 @@ void main() {
         return;
     }
     // change the coordinate system to NDC
-    vec2 ndcCoord = (2.0 * vec2(texCoord) - vec2(imageWidth, imageHeight)) / vec2(imageWidth, imageHeight);
+    // actual pixel coordinate needs to be added by 0.5 because the texel center is at (0.5, 0.5)
+    vec2 ndcCoord = (2.0 * (vec2(texCoord) + vec2(0.5)) - vec2(imageWidth, imageHeight)) / vec2(imageWidth, imageHeight);
     ndcCoord.y *= -1.0; // in NDC, y is from bottom to top, while in image, y is from top to bottom
 
     // compute the ray direction via the camera parameters
@@ -363,34 +482,28 @@ void main() {
     vec3 color;
 
 
-    Sphere sphere = getSphere(1);
     Ray ray;
     ray.origin = cameraPos;
     ray.direction = rayDir;
     HitRecord hitRecord;
-    float tMin = 0.0;
-    float tMax = 10000.0;
-    bool hit = false;
-    if (hitTriangle(getTriangle(0), ray, tMin, tMax, hitRecord)) {
-        hit = true;
-        tMax = hitRecord.t;
-    }
-    for(int i = 1;i<primitiveCount;i++){
-        Sphere sphere = getSphere(i);
-        if (hitSphere(sphere, ray, tMin, tMax, hitRecord)) {
-            hit = true;
-            tMax = hitRecord.t;
-        }
-    }
-    if(hit){
-        imageStore(outputImage, texCoord, vec4(hitRecord.color, 1.0));
-        return;
-    }
+    
 
-    // just get the color from the skybox
-    if (hasSkybox) {
-        color = texture(skyboxTexture, rayDir).rgb;
-    }
+    color = rayColor(ray, maxDepth);
+
+//   float tMin = 0.0;
+//   float tMax = 10000.0;
+//    bool hit = hitBVH(ray, tMin, tMax, hitRecord);
+//
+//
+//    if(hit){
+//        imageStore(outputImage, texCoord, vec4(hitRecord.color, 1.0));
+//        return;
+//    }
+//
+//    // just get the color from the skybox
+//    if (hasSkybox) {
+//        color = texture(skyboxTexture, rayDir).rgb;
+//    }
 
     
     // mix the color with the last frame (temporal denoising)

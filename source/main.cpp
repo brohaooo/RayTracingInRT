@@ -104,7 +104,8 @@ int main() {
         // whether we should display the ray-tracing result on screen canvas or not
         bool display_screen_canvas = current_state == "CPU ray-tracing" || current_state == "Displaying CPU ray-tracing result" 
         || current_state == "GPU_ray_tracing state";
-        renderer.render(Scene, display_screen_canvas); // render the scene using openGL rasterization pipeline
+        bool draw_imgui = current_state == "Default render state" || current_state == "GPU_ray_tracing state";
+        renderer.render(Scene, display_screen_canvas,draw_imgui); // render the scene using openGL rasterization pipeline
 
 
         // process state input by checking the renderer's flags

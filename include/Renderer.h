@@ -288,7 +288,7 @@ class Renderer {
 
     //void render
 
-	void render(Scene & _scene, bool render_screenCanvas = false) {
+	void render(Scene & _scene, bool render_screenCanvas = false, bool render_ImGUI = true) {
         std::vector<Object*> & objects = _scene.objects;
         std::vector<Model*>& rotate_models = _scene.rotate_models;
 		// render loop
@@ -309,6 +309,10 @@ class Renderer {
             glClear(GL_DEPTH_BUFFER_BIT); 
             screenCanvas->prepareDraw(context);
             screenCanvas->draw();
+            if (render_ImGUI) {
+                render_IMGUI();
+            }
+
             return; // if ray tracing is enabled, then the screenCanvas will be updated in the ray tracing thread
             // but we don't need to render the openGL objects in this case, so we return here
         }
@@ -345,7 +349,10 @@ class Renderer {
 
     
         // imgui---------------------------
-        render_IMGUI();
+        if (render_ImGUI){
+            render_IMGUI();
+        }
+        
         // --------------------------------
 
         
@@ -391,23 +398,23 @@ class Renderer {
 			ImGui::Text("CAM FOV: %.3f", GL_camera->Zoom);
 		}
         ImGui::End();
-        if (ImGui::Begin("CONTROL PANEL", nullptr)) {
-
-            ImGui::SliderFloat("Rotation", &pbr_params.rotationAngle, 0.0f, 360.0f);
-            ImGui::SliderFloat("eta", &pbr_params.eta, 0.0f, 1.0f);
-            ImGui::SliderFloat("m", &pbr_params.m, 0.0f, 1.0f);
-            // radio buttons
-            ImGui::RadioButton("Full Lighting", &pbr_params.render_mode, 0); ImGui::SameLine();
-            ImGui::RadioButton("Fresnel", &pbr_params.render_mode, 1); ImGui::SameLine();
-            ImGui::RadioButton("Distribution", &pbr_params.render_mode, 2); ImGui::SameLine();
-            ImGui::RadioButton("Geometric", &pbr_params.render_mode, 3);
-            // color edit picker
-            ImGui::ColorEdit3("ka", (float*)&pbr_params.ka_color);
-            ImGui::ColorEdit3("kd", (float*)&pbr_params.kd_color);
-            ImGui::ColorEdit3("ks", (float*)&pbr_params.ks_color);
-            
-        }
-		ImGui::End();
+//        if (ImGui::Begin("CONTROL PANEL", nullptr)) {
+//
+//            ImGui::SliderFloat("Rotation", &pbr_params.rotationAngle, 0.0f, 360.0f);
+//            ImGui::SliderFloat("eta", &pbr_params.eta, 0.0f, 1.0f);
+//            ImGui::SliderFloat("m", &pbr_params.m, 0.0f, 1.0f);
+//            // radio buttons
+//            ImGui::RadioButton("Full Lighting", &pbr_params.render_mode, 0); ImGui::SameLine();
+//            ImGui::RadioButton("Fresnel", &pbr_params.render_mode, 1); ImGui::SameLine();
+//            ImGui::RadioButton("Distribution", &pbr_params.render_mode, 2); ImGui::SameLine();
+//            ImGui::RadioButton("Geometric", &pbr_params.render_mode, 3);
+//            // color edit picker
+//            ImGui::ColorEdit3("ka", (float*)&pbr_params.ka_color);
+//            ImGui::ColorEdit3("kd", (float*)&pbr_params.kd_color);
+//            ImGui::ColorEdit3("ks", (float*)&pbr_params.ks_color);
+//            
+//        }
+//		  ImGui::End();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		// --------------------------------
