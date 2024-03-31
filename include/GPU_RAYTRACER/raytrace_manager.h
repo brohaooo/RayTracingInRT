@@ -1,9 +1,10 @@
 #ifndef GPU_RAYTRACER_RAYTRACE_MANAGER_H
 #define GPU_RAYTRACER_RAYTRACE_MANAGER_H
 
-#include "../Object.h"
+#include "../RayTraceObject.h"
 #include "data_structures.h"
 #include <vector>
+#include <unordered_map>
 
 namespace GPU_RAYTRACER{
 
@@ -33,7 +34,20 @@ namespace GPU_RAYTRACER{
             glBindTexture(GL_TEXTURE_BUFFER, 0);
 
 
-            // no bvh buffer for now
+            // generate the TLAS buffer and BLAS buffer, still use the texture buffer for the TLAS and BLAS
+            glGenBuffers(1, &TLASBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, TLASBuffer);
+            glGenTextures(1, &TLASTexture);
+            glBindTexture(GL_TEXTURE_BUFFER, TLASTexture);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, TLASBuffer);// vec4 would be more efficient
+            glBindTexture(GL_TEXTURE_BUFFER, 0);
+
+            glGenBuffers(1, &BLASBuffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, BLASBuffer);
+            glGenTextures(1, &BLASTexture);
+            glBindTexture(GL_TEXTURE_BUFFER, BLASTexture);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, BLASBuffer);// vec4 would be more efficient
+            glBindTexture(GL_TEXTURE_BUFFER, 0);
 
 
             // compile the compute shader
@@ -56,71 +70,26 @@ namespace GPU_RAYTRACER{
         };
         // include skybox, objects, dynamic_cast to check the type of the object
         // and store the object in the corresponding list (triangles, spheres, skybox)
-        void loadScene(std::vector<Object*> objects){
+        void loadScene(std::vector<RayTraceObject*> _rayTraceObjects, Skybox* skybox){
             // clear the previous data
             encodedPrimitives.clear();
-            bvhNodes.clear();
-            // loop through the objects
-            for (int i = 0; i < objects.size(); i++){
-                if (dynamic_cast<Triangle*>(objects[i])){
-                    Triangle * triangle = dynamic_cast<Triangle*>(objects[i]);
-                    // encode the triangle to the primitive struct
-                    Primitive primitive;
-                    primitive.primitiveInfo = glm::vec3(0, 0, 0); // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
-                    primitive.baseColor = triangle->color;
-                    primitive.v0 = triangle->v0;
-                    primitive.v1 = triangle->v1;
-                    primitive.v2 = triangle->v2;
-                    primitive.n1 = triangle->n1;
-                    primitive.n2 = triangle->n2;
-                    primitive.n3 = triangle->n3;
-                    primitive.t1 = glm::vec3(0,1,0);    // not specified yet
-                    primitive.t2 = glm::vec3(1,1,0);
-                    primitive.t3 = glm::vec3(0.5,0.5,0);
-                    encodedPrimitives.push_back(primitive);
-                    
-                }
-                else if (dynamic_cast<Sphere*>(objects[i])){
-                    Sphere * sphere = dynamic_cast<Sphere*>(objects[i]);
-                    glm::mat4 model = sphere->model;
-                    glm::quat rotation = glm::quat_cast(model);
-                    // encode the sphere to the primitive struct
-                    Primitive primitive;
-                    primitive.primitiveInfo = glm::vec3(1, 0, 0); // 1: sphere, 0: lambertian
-                    primitive.baseColor = sphere->color;
-                    primitive.v0 = glm::vec3(model[3][0], model[3][1], model[3][2]);
-                    primitive.v1 = glm::vec3(1, 2, 3); // rotation quaternion's xyz
-                    primitive.v2 = glm::vec3(4, model[0][0], 0); // rotation quaternion's w, and the radius (the sphere is scaled uniformly, so we can get the radius from any of the scale values)
-                    primitive.n1 = glm::vec3(0,0,0); // not used
-                    primitive.n2 = glm::vec3(0,0,0); // not used
-                    primitive.n3 = glm::vec3(0,0,0); // not used
-                    primitive.t1 = glm::vec3(0,1,0);    // not specified yet
-                    primitive.t2 = glm::vec3(1,1,0);
-                    primitive.t3 = glm::vec3(0.5,0.5,0);
-                    encodedPrimitives.push_back(primitive);
-                    
-                }
-                else if (dynamic_cast<Skybox*>(objects[i])){
-                    // we just need its texture
-                    Skybox * skybox = dynamic_cast<Skybox*>(objects[i]);
-                    hasSkybox = true;
-                    skyboxTexture = skybox->texture;
-                }
-                else if (dynamic_cast<Model*>(objects[i])){
-                    Model * model = dynamic_cast<Model*>(objects[i]);
-                    // encode the model to the primitive struct
-                    // loop through the triangles of the model on all the meshes
-                    // not implemented yet
-                    
-                }
-                else{
-                    // unsupported object type
-                    std::cout<<"unsupported object type"<<std::endl;
-                
-                }
+            this->rayTraceObjects = _rayTraceObjects;
+            // put all the primitives in the scene to the encodedPrimitives list
+            for (int i = 0; i < rayTraceObjects.size(); i++){
+                RayTraceObject * obj = rayTraceObjects[i];
+                int currentPrimitiveIndex = encodedPrimitives.size();
+                objectPrimitiveIndex[obj] = currentPrimitiveIndex;
+                encodedPrimitives.insert(encodedPrimitives.end(), obj->localEncodedPrimitives.begin(), obj->localEncodedPrimitives.end());
+            }
+
+
+            
+            if (skybox != nullptr){
+                hasSkybox = true;
+                skyboxTexture = skybox->texture;    
             }
             // construct BVH tree
-            //constructBVH();
+            constructBVH();
             // upload the scene data to the GPU
             uploadSceneData();
 
@@ -144,6 +113,13 @@ namespace GPU_RAYTRACER{
             // bind the primitive texture to texture unit 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_BUFFER, primitiveTexture);
+            // bind the TLAS texture to texture unit 2
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_BUFFER, TLASTexture);
+            // bind the BLAS texture to texture unit 3
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_BUFFER, BLASTexture);
+            
 
             // dispatch the compute shader, local size is 16x16x1
             glDispatchCompute((width + 15) / 16, (height + 15) / 16, 1);
@@ -154,24 +130,184 @@ namespace GPU_RAYTRACER{
 
         };
         // construct BVH tree for the scene (in CPU, then upload to GPU)
-        void constructBVH();
+        void constructBVH(){
+            TLASNodes.clear();
+            BLASNodes.clear();
+            // construct the bottom level acceleration structure
+            constructBLAS();
+            // construct the top level acceleration structure
+            constructTLAS();
+        }
+
+        // recursive function to build the BVH tree, stored as array of nodes
+        // return the index of the root node of the BVH tree
+        // during the construction, we will sort the rayTraceObjects recursively
+        int buildTLASBVH(int left, int right){
+            if (left > right){
+                std::cout<< "[buildTLASBVH]: error: left > right"<<std::endl;// this should not happen
+                return -1;
+            }
+            // in each recursive call, we insert a node to the TLASNodes list
+            TLASNode node;
+            TLASNodes.push_back(TLASNode());
+            int idx = TLASNodes.size() - 1;
+            if (left == right){// it should be a leaf node, containing Model matrix and world space AABB, pointing to the BLAS node, which is the root of the local BLAS tree
+                node.left = -1;
+                node.right = -1;
+                RayTraceObject * obj = rayTraceObjects[left];
+                node.BLASIndex = objectBLASIndex[obj];
+                // this node's AABB is the world space AABB of the object (multiplied by the model matrix)
+                auto result = transformAABB2WorldSpace(obj->AA, obj->BB, obj->modelMatrix);
+                node.AA = result.first;
+                node.BB = result.second;
+
+                // tmp debug, no model matrix
+                node.AA = obj->AA;
+                node.BB = obj->BB;
+
+
+                node.materialType = obj->material.type;
+                node.textureID = obj->material.textureID;
+                node.baseColor = obj->material.baseColor;
+                node.fuzzOrIOR = obj->material.fuzzOrIOR;
+                node.modelMatrix = obj->modelMatrix;
+                TLASNodes[idx] = node;
+                return idx;
+            }
+            // sort the objects along a random axis
+            // we can use the center of the AABB as the sorting key
+            else{
+                int axis = rand() % 3;
+                std::sort(rayTraceObjects.begin() + left, rayTraceObjects.begin() + right + 1, [axis](RayTraceObject * a, RayTraceObject * b){
+                    glm::vec3 centerA = 0.5f * (a->AA + a->BB);// same as (a->localBLAS[0].AA + a->localBLAS[0].BB)
+                    glm::vec3 centerB = 0.5f * (b->AA + b->BB);// same as (b->localBLAS[0].AA + b->localBLAS[0].BB)
+                    return centerA[axis] < centerB[axis];
+                });
+                int mid = left + (right - left) / 2;
+                int leftChild = buildTLASBVH(left, mid);
+                int rightChild = buildTLASBVH(mid + 1, right);
+                node.left = leftChild;
+                node.right = rightChild;
+                node.BLASIndex = -1;
+                // calculate the AABB of the node
+                glm::vec3 AA = glm::vec3(FLT_MAX);
+                glm::vec3 BB = glm::vec3(-FLT_MAX);
+                // instead of traversing every object between left and right, we can use the AABB of the left and right child nodes
+                // to calculate the AABB of the current node
+                if (leftChild != -1){
+                    AA = glm::min(AA, TLASNodes[leftChild].AA);
+                    BB = glm::max(BB, TLASNodes[leftChild].BB);
+                }
+                if (rightChild != -1){
+                    AA = glm::min(AA, TLASNodes[rightChild].AA);
+                    BB = glm::max(BB, TLASNodes[rightChild].BB);
+                }
+                node.AA = AA;
+                node.BB = BB;
+                TLASNodes[idx] = node;
+                return idx;
+
+            }
+            
+        }
+
+
+        void constructTLAS(){
+            
+            // with all the objects AABBs(just the root AABBs of each local BLAS trees) and the Model matrices as well as the material info
+            // we can construct the TLAS nodes
+            // test: not bvh, just a list of nodes pointing to each object's root BLAS node
+            // for (int i = 0; i < rayTraceObjects.size(); i++){
+            //     RayTraceObject * obj = rayTraceObjects[i];
+            //     int currentBLASIndex = objectBLASIndex[obj];
+            //     TLASNode node;
+            //     node.left = -1;
+            //     node.right = -1;
+            //     node.BLASIndex = currentBLASIndex;
+            //     node.AA = obj->localBLAS[0].AA;
+            //     node.BB = obj->localBLAS[0].BB;
+            //     node.materialType = obj->material.type;
+            //     node.textureID = obj->material.textureID;
+            //     node.baseColor = obj->material.baseColor;
+            //     node.fuzzOrIOR = obj->material.fuzzOrIOR;
+            //     node.modelMatrix = obj->modelMatrix;
+            //     TLASNodes.push_back(node);
+            // }
+            // build the TLAS BVH
+            buildTLASBVH(0, rayTraceObjects.size() - 1);
+            
+
+        };
+        void constructBLAS(){
+            // just use the local BLAS nodes of each object to the BLASNodes list
+            // but we need to calculate the shifted index for each BLAS nodes
+            for (int i = 0; i < rayTraceObjects.size(); i++){
+                RayTraceObject * obj = rayTraceObjects[i];
+                int currentPrimitiveIndex = objectPrimitiveIndex[obj];
+                int currentBLASIndex = BLASNodes.size();
+                std::vector<BLASNode> & localBLASNodes = obj->localBLAS;
+                for (int j = 0; j < localBLASNodes.size(); j++){
+                    BLASNode node = localBLASNodes[j];
+                    node.index += currentPrimitiveIndex;
+                    if (node.left != -1){
+                        node.left += currentBLASIndex;
+                    }
+                    if (node.right != -1){
+                        node.right += currentBLASIndex;
+                    }
+                    BLASNodes.push_back(node);
+                }
+                objectBLASIndex[obj] = currentBLASIndex;
+                
+            }
+
+        };
+
+
+        void draw_TLAS_AABB(){
+            // draw the AABB of the TLAS nodes
+            for (int i = 0; i < TLASNodes.size(); i++){
+                //std::cout<<"TLAS node "<<i<<std::endl;
+                TLASNode node = TLASNodes[i];
+                //if (node.BLASIndex == -1){
+                //    continue;
+                //}
+                //glm::vec3 
+
+                // these AABBs are in world space
+                glm::vec3 AA = node.AA;
+                glm::vec3 BB = node.BB;
+                debugAABBShader->use();
+                debugAABBShader->setVec3("AABB_min", AA);
+                debugAABBShader->setVec3("AABB_max", BB);
+
+                glBindVertexArray(AABB_VAO);
+                glDrawArrays(GL_LINES, 0, 24);
+            }
+        };
+        
+
+
         // upload scene data to gpu: bvh nodes, objects(geometries(triangles/spheres), materials)
         void uploadSceneData(){
             // upload the primitives
             glBindBuffer(GL_TEXTURE_BUFFER, primitiveBuffer);
             glBufferData(GL_TEXTURE_BUFFER, encodedPrimitives.size() * PrimitiveSize, encodedPrimitives.data(), GL_STATIC_DRAW);
-            glActiveTexture(GL_TEXTURE0); // primitive texture will be bound to texture unit 0, we specify this in the shader 
-            glBindTexture(GL_TEXTURE_BUFFER, primitiveTexture);
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, primitiveBuffer);
-            raytraceComputeShader->use();
-            raytraceComputeShader->setInt("primitiveBuffer", 0);
             glBindTexture(GL_TEXTURE_BUFFER, 0);
             // upload the bvh nodes
             // TLAS: top level acceleration structure, can be updated frequently as scene changes or meshes move
-
+            glBindBuffer(GL_TEXTURE_BUFFER, TLASBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, TLASNodes.size() * TLASNodeSize, TLASNodes.data(), GL_STATIC_DRAW);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, TLASBuffer);
+            glBindTexture(GL_TEXTURE_BUFFER, 0);
 
 
             // BLAS: bottom level acceleration structure, should be static, can be updated rarely, e.g. when a mesh is added or removed
+            glBindBuffer(GL_TEXTURE_BUFFER, BLASBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, BLASNodes.size() * BLASNodeSize, BLASNodes.data(), GL_STATIC_DRAW);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, BLASBuffer);
+            glBindTexture(GL_TEXTURE_BUFFER, 0);
 
 
             
@@ -193,8 +329,10 @@ namespace GPU_RAYTRACER{
         void updateUniforms(){
             // set the uniforms for the compute shader
             raytraceComputeShader->use();
-            raytraceComputeShader->setInt("primitiveTexture", 0); // primitive texture is bound to texture unit 0
+            raytraceComputeShader->setInt("primitives", 0); // primitive texture is bound to texture unit 0
             raytraceComputeShader->setInt("skyboxTexture", 1); // skybox texture is bound to texture unit 1
+            raytraceComputeShader->setInt("TLAS", 2); // TLAS texture is bound to texture unit 2
+            raytraceComputeShader->setInt("BLAS", 3); // BLAS texture is bound to texture unit 3
             raytraceComputeShader->setVec3("cameraPos", camera->Position);
             raytraceComputeShader->setVec3("cameraFront", camera->Front);
             raytraceComputeShader->setVec3("cameraUp", camera->Up);
@@ -204,7 +342,6 @@ namespace GPU_RAYTRACER{
             raytraceComputeShader->setInt("imageWidth", width);
             raytraceComputeShader->setInt("imageHeight", height);
             raytraceComputeShader->setInt("primitiveCount", encodedPrimitives.size());
-            raytraceComputeShader->setInt("bvhNodeCount", bvhNodes.size());
             raytraceComputeShader->setInt("maxDepth", 5);
             raytraceComputeShader->setInt("frameCounter", frameCounter);
             // upload a time
@@ -221,7 +358,20 @@ namespace GPU_RAYTRACER{
         void setShaders(){
             // compute shader
             raytraceComputeShader = new ComputeShader("../../shaders/raytrace_compute_shader.comp");
-            
+            // debug AABB shader
+            debugAABBShader = new Shader("../../shaders/debug_AABB.vert", "../../shaders/debug_AABB.frag");
+            // set up the VAO and VBO for drawing AABBs
+            glGenVertexArrays(1, &AABB_VAO);
+            glGenBuffers(1, &AABB_VBO);
+            glBindVertexArray(AABB_VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, AABB_VBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
+
+
 
         };
         void setScreenCanvas(Rect * _screenCanvas){
@@ -243,18 +393,26 @@ namespace GPU_RAYTRACER{
         };
     private:
         GLuint renderTexture; // texture to render the result of the ray tracing
-        GLuint bvhBuffer; // ssbo for bvh nodes
+        GLuint TLASBuffer; // top level acceleration structure buffer
+        GLuint TLASTexture; // texture buffer for the TLAS
+        GLuint BLASBuffer; // bottom level acceleration structure buffer
+        GLuint BLASTexture; // texture buffer for the BLAS
         GLuint primitiveBuffer; // tbo for primitives (triangles/spheres)
         GLuint primitiveTexture; // texture buffer for the primitives
         bool hasSkybox = false;
         GLuint skyboxTexture; // skybox texture
-        
+
+        std::vector<RayTraceObject*> rayTraceObjects; // objects in the scene
+        std::unordered_map<RayTraceObject*, int> objectPrimitiveIndex; // map from object ptr to its Primitive starting index(shift amount in the primitive buffer)
+        std::unordered_map<RayTraceObject*, int> objectBLASIndex; // map from object ptr to its BLAS starting index(shift amount in the BLAS buffer)
         std::vector<Primitive> encodedPrimitives; // triangles and spheres
-        std::vector<BVHNode> bvhNodes;
+        std::vector<TLASNode> TLASNodes;
+        std::vector<BLASNode> BLASNodes;
         // shaders
         Shader * raytraceComputeShader;
-        Shader * displayVertexShader;// not used for now, we render from outside using the screenCanvas
-        Shader * displayFragmentShader;// not used for now
+        Shader * debugAABBShader; // shader for drawing AABBs
+        GLuint AABB_VAO, AABB_VBO; // VAO and VBO for drawing AABBs
+
         // ref to screen quad object 
         Rect * screenCanvas;
         // ref to camera object, to get the view matrix and the projection matrix

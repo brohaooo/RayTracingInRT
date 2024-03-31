@@ -85,9 +85,9 @@ namespace CPU_RAYTRACER {
 		// interpolate the normal
 
 		// enable this to make the triangle single sided (like rasterization)
-		if (!(dot(r.direction(), normal) < 0)) {
-			return false;
-		}
+		//if (!(dot(r.direction(), normal) < 0)) {
+		//	return false;
+		//}
 
 		rec.t = t;
 		rec.p = r.at(t);

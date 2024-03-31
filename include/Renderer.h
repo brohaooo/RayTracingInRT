@@ -347,6 +347,11 @@ class Renderer {
 			object->draw();
 		}
 
+        // debug: draw aabb in raytrace_manager
+        if (GPURT_manager != nullptr) {
+            GPURT_manager->draw_TLAS_AABB();
+        }
+
     
         // imgui---------------------------
         if (render_ImGUI){

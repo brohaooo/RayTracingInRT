@@ -181,20 +181,22 @@ class Rect : public ScreenSpaceObject {
 class MVPObject : public Object {
 public:
 	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 projection;
+	glm::vec4 color;
 	void prepareDraw(const RenderContext& context) override {
 		// not used currently, we use ubo to pass vp matrix
 	}
 	void setModel(glm::mat4 _model) {
 		model = _model;
 	}
+	void setColor(glm::vec4 _color) {
+		color = _color;
+	}
 };
+
 
 
 class Sphere : public MVPObject {
 public:
-	glm::vec4 color;
 	GLuint EBO;
 	Sphere() {
 		std::vector<GLfloat> sphereVertices;
@@ -259,11 +261,6 @@ public:
 		glBindVertexArray(0);
 	}
 
-
-	void setColor(glm::vec4 _color) {
-		color = _color;
-	}
-
 	void Delete() override {
 		glDeleteVertexArrays(1, &VAO);
 		glDeleteBuffers(1, &VBO);
@@ -279,8 +276,6 @@ public:
 			shader->setInt("texture1", 0);
 		}
 		shader->setMat4("model", model);
-		shader->setMat4("view", view);
-		shader->setMat4("projection", projection);
 		shader->setVec4("color", color);
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 10800, GL_UNSIGNED_INT, 0);
@@ -311,8 +306,6 @@ public:
 			shader->setInt("texture1", 0);
 		}
 		shader->setMat4("model", model);
-		shader->setMat4("view", view);
-		shader->setMat4("projection", projection);
 		shader->setVec4("color", color);
 		shader->setFloat("transparancy", transparancy);
 		glBindVertexArray(VAO);
@@ -327,7 +320,6 @@ public:
 // a single triangle
 class Triangle : public MVPObject {
 public:
-glm::vec4 color;
 glm::vec3 v0,v1,v2;
 glm::vec3 n1,n2,n3;
 
@@ -342,6 +334,10 @@ Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
 		_v0.x, _v0.y, _v0.z,   0.0f, 1.0f, // left bottom
 		_v1.x, _v1.y, _v1.z,   1.0f, 1.0f, // right bottom
 		_v2.x, _v2.y, _v2.z,   0.5f, 0.0f, // mid top
+		// the back side
+		_v0.x, _v0.y, _v0.z,   0.0f, 1.0f, // left bottom
+		_v2.x, _v2.y, _v2.z,   0.5f, 0.0f, // mid top
+		_v1.x, _v1.y, _v1.z,   1.0f, 1.0f, // right bottom		
 	};
 
 		glGenVertexArrays(1, &VAO);
@@ -357,10 +353,6 @@ Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
 		glBindVertexArray(0); 
 	}
 
-	void setColor(glm::vec4 _color) {
-		color = _color;
-	}
-
 	void Delete() override {
 		glDeleteVertexArrays(1, &VAO);
 		glDeleteBuffers(1, &VBO);
@@ -374,11 +366,9 @@ Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
 			shader->setInt("texture1", 0);
 		}
 		shader->setMat4("model", model);
-		shader->setMat4("view", view);
-		shader->setMat4("projection", projection);
 		shader->setVec4("color", color);
 		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
 	}
 
@@ -500,9 +490,6 @@ public:
 		}
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
-		//shader->setMat4("model", model);
-		shader->setMat4("view", view);
-		shader->setMat4("projection", projection);
 		glBindVertexArray(VAO);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		glBindVertexArray(0);

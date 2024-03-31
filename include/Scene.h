@@ -10,7 +10,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "Object.h"
+#include "RayTraceObject.h"
 #include <Shader.h>
 
 
@@ -26,74 +26,75 @@ class Scene {
 
     std::vector<Object*> objects; // Scene objects to be rendered each frame (not ray tracing, it is openGL rasterization objects)
     std::vector<Model*> rotate_models; // models that can be rotated by imgui, tmp implementation, to rotate the teapot and fish from imgui
-    
+    Skybox* skybox; // skybox object
+    std::vector<RayTraceObject*> rayTraceObjects; // temporary, for testing ray tracing objects
     // TODO: add lights
     //std::vector<Light*> lights; 
-    Scene(int initNum) : CPURT_skybox("../../resource/skybox") {
-        // ------------------ ray tracing objects ------------------
-        // ground sphere in cpu ray tracing
-        auto diffuse_material = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(0.5, 0.5, 0.5));
-        auto glass_material = make_shared<CPU_RAYTRACER::dielectric>(1.5);
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
-        auto light_material = make_shared<CPU_RAYTRACER::diffuse_light>(glm::vec3(4, 4, 4));
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(2, 1, 0), 0.8, light_material));
-
-        // a mesh teapot
-        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> mesh_vec = CPU_RAYTRACER::load_mesh("../../resource/teapot.obj", diffuse_material);
-        CPU_RAYTRACER::mesh  teapot_mesh(mesh_vec, glass_material,glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::mesh>(teapot_mesh));
-        // construct BVH
-        CPU_RAYTRACER::hittable_list BVH_RT_objects;
-        BVH_RT_objects = CPU_RAYTRACER::hittable_list(make_shared<CPU_RAYTRACER::BVH_node>(CPURT_objects));
-        CPURT_objects = BVH_RT_objects;
-
-
-
-        // ------------------ openGL rasterization objects ------------------
-
-        // skybox
-        Skybox* skybox = new Skybox();
-        skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
-        skybox->setTexture("../../resource/skybox");
-
-
-        // the ground sphere
-        Sphere* sphereObject1 = new Sphere();
-        sphereObject1->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
-        sphereObject1->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
-        sphereObject1->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
-
-        objects.push_back(sphereObject1);
-
-        // light sphere (for light source visualization)
-        Sphere* sphereObject2 = new Sphere();
-        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
-        sphereObject2->setColor(glm::vec4(2, 2, 2, 1.0));
-        sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(2, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.8, 0.8, 0.8)));
-
-        objects.push_back(sphereObject2);
-
-
-        Model* teapot = new Model("../../resource/teapot.obj");
-        teapot->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
-        teapot->setShader(new Shader("../../shaders/mesh_shader.vert", "../../shaders/mesh_shader.frag"));
-        objects.push_back(teapot);
-
-
-        //Model* fish = new Model("../../resource/Amago0.obj");
-        //fish->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(5.01, 5.01, 5.01)));
-        //fish->setShader(new Shader("../../shaders/mesh_shader.vert", "../../shaders/mesh_shader.frag"));
-        //objects.push_back(fish);
-
-
-        rotate_models.push_back(teapot);
-        //rotate_models.push_back(fish);
-
-        
-        // then render the skybox
-        objects.push_back(skybox);
-
-    }
+//    Scene(int initNum) : CPURT_skybox("../../resource/skybox") {
+//        // ------------------ ray tracing objects ------------------
+//        // ground sphere in cpu ray tracing
+//        auto diffuse_material = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(0.5, 0.5, 0.5));
+//        auto glass_material = make_shared<CPU_RAYTRACER::dielectric>(1.5);
+//        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
+//        auto light_material = make_shared<CPU_RAYTRACER::diffuse_light>(glm::vec3(4, 4, 4));
+//        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(2, 1, 0), 0.8, light_material));
+//
+//        // a mesh teapot
+//        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> mesh_vec = CPU_RAYTRACER::load_mesh("../../resource/teapot.obj", diffuse_material);
+//        CPU_RAYTRACER::mesh  teapot_mesh(mesh_vec, glass_material,glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+//        CPURT_objects.add(make_shared<CPU_RAYTRACER::mesh>(teapot_mesh));
+//        // construct BVH
+//        CPU_RAYTRACER::hittable_list BVH_RT_objects;
+//        BVH_RT_objects = CPU_RAYTRACER::hittable_list(make_shared<CPU_RAYTRACER::BVH_node>(CPURT_objects));
+//        CPURT_objects = BVH_RT_objects;
+//
+//
+//
+//        // ------------------ openGL rasterization objects ------------------
+//
+//        // skybox
+//        Skybox* skybox = new Skybox();
+//        skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
+//        skybox->setTexture("../../resource/skybox");
+//
+//
+//        // the ground sphere
+//        Sphere* sphereObject1 = new Sphere();
+//        sphereObject1->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
+//        sphereObject1->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
+//        sphereObject1->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
+//
+//        objects.push_back(sphereObject1);
+//
+//        // light sphere (for light source visualization)
+//        Sphere* sphereObject2 = new Sphere();
+//        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
+//        sphereObject2->setColor(glm::vec4(2, 2, 2, 1.0));
+//        sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(2, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.8, 0.8, 0.8)));
+//
+//        objects.push_back(sphereObject2);
+//
+//
+//        Model* teapot = new Model("../../resource/teapot.obj");
+//        teapot->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+//        teapot->setShader(new Shader("../../shaders/mesh_shader.vert", "../../shaders/mesh_shader.frag"));
+//        objects.push_back(teapot);
+//
+//
+//        //Model* fish = new Model("../../resource/Amago0.obj");
+//        //fish->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(5.01, 5.01, 5.01)));
+//        //fish->setShader(new Shader("../../shaders/mesh_shader.vert", "../../shaders/mesh_shader.frag"));
+//        //objects.push_back(fish);
+//
+//
+//        rotate_models.push_back(teapot);
+//        //rotate_models.push_back(fish);
+//
+//        
+//        // then render the skybox
+//        objects.push_back(skybox);
+//
+//    }
 
 	Scene() : CPURT_skybox("../../resource/skybox") {
         // ------------------ ray tracing objects ------------------
@@ -143,55 +144,64 @@ class Scene {
         // ------------------ openGL rasterization objects ------------------
 
         // skybox
-        Skybox * skybox = new Skybox();
-        skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
-		skybox->setTexture("../../resource/skybox");
+        Skybox * _skybox = new Skybox();
+        _skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
+		_skybox->setTexture("../../resource/skybox");
 
-
+        this->skybox = _skybox;
 
 
         // create openGL objects for the above ray tracing objects
         // the glass sphere
         Sphere * sphereObject = new Sphere();
-        sphereObject->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
-        sphereObject->setColor(glm::vec4(0.3, 0.4, 0.8, 0.2));
-        sphereObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        RayTraceObject * rayTraceObject1 = new RayTraceObject(sphereObject);
+        rayTraceObject1->setMaterial(DIELECTRIC, 1.5, -1, glm::vec4(0.3, 0.4, 0.8, 0.2));
+        rayTraceObject1->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        rayTraceObject1->update();
+        rayTraceObjects.push_back(rayTraceObject1);
+
         
         // the ground sphere
         Sphere * sphereObject2 = new Sphere();
-        sphereObject2->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
-        sphereObject2->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
-        sphereObject2->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
+        RayTraceObject * rayTraceObject2 = new RayTraceObject(sphereObject2);
+        rayTraceObject2->setMaterial(LAMBERTIAN, 0.0, -1, glm::vec4(0.5, 0.5, 0.5, 1.0));
+        rayTraceObject2->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
+        rayTraceObject2->update();
+        rayTraceObjects.push_back(rayTraceObject2);
         
         // the earth sphere
         Sphere* sphereObject3 = new Sphere();
-        sphereObject3->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/texture_shader.frag"));
-        sphereObject3->setColor(glm::vec4(1.0, 1.0, 1.0, 1.0));
-        sphereObject3->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
-        sphereObject3->setTexture("../../resource/earthmap.jpg");
-        
+        RayTraceObject * rayTraceObject3 = new RayTraceObject(sphereObject3);
+        rayTraceObject3->setMaterial(LAMBERTIAN, 0.0, 0, glm::vec4(1.0, 1.0, 1.0, 1.0), "../../resource/earthmap.jpg");
+        rayTraceObject3->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        rayTraceObject3->update();
+        rayTraceObjects.push_back(rayTraceObject3);
 
 
         // the metal sphere
         Sphere* sphereObject4 = new Sphere();
-        sphereObject4->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
-        sphereObject4->setColor(glm::vec4(0.7, 0.6, 0.5, 1.0));
-        sphereObject4->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        RayTraceObject * rayTraceObject4 = new RayTraceObject(sphereObject4);
+        rayTraceObject4->setMaterial(METAL, 0.0, -1, glm::vec4(0.7, 0.6, 0.5, 1.0));
+        rayTraceObject4->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        rayTraceObject4->update();
+        rayTraceObjects.push_back(rayTraceObject4);
 
         //diffuse light sphere
         Sphere* sphereObject5 = new Sphere();
-        sphereObject5->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
-        sphereObject5->setColor(glm::vec4(2, 2, 2, 1.0));
-        sphereObject5->setModel(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
+        RayTraceObject * rayTraceObject5 = new RayTraceObject(sphereObject5);
+        rayTraceObject5->setMaterial(LAMBERTIAN, 0.0, -1, glm::vec4(2, 2, 2, 1.0));
+        rayTraceObject5->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
+        rayTraceObject5->update();
+        rayTraceObjects.push_back(rayTraceObject5);
 
 
 
         Triangle* triangleObject = new Triangle(v0, v1, v2);
-        triangleObject->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/shader.frag"));
-        //triangleObject->setShader(new Shader("../../shaders/texture_shader.vert", "../../shaders/texture_shader.frag"));
-        triangleObject->setColor(glm::vec4(0.5, 0.5, 0.5, 1.0));
-        triangleObject->setModel(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
-        //triangleObject->setTexture("../../resource/earthmap.jpg");
+        RayTraceObject * rayTraceObject6 = new RayTraceObject(triangleObject);
+        rayTraceObject6->setMaterial(LAMBERTIAN, 0.0, -1, glm::vec4(0.5, 0.5, 0.5, 1.0));
+        rayTraceObject6->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        rayTraceObject6->update();
+        rayTraceObjects.push_back(rayTraceObject6);
         
         objects.push_back(triangleObject);
 

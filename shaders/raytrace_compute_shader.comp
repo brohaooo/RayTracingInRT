@@ -11,19 +11,20 @@ uniform int imageWidth;
 uniform int imageHeight;
 uniform bool hasSkybox;
 uniform int primitiveCount;
-uniform int bvhNodeCount;
 uniform int maxDepth;
 
 uniform int frameCounter; // from 1 to inf
 uniform float time;
 
 uniform samplerCube skyboxTexture;
-uniform samplerBuffer primitiveBuffer;
-uniform samplerBuffer TLASBuffer; // top level acceleration structure buffer, containing BVH nodes for mesh instances
-uniform samplerBuffer BLASBuffer; // bottom level acceleration structure buffer, containing BVH nodes for triangles
+uniform samplerBuffer primitives; // GL_TEXTURE0 
+uniform samplerBuffer TLAS; // top level acceleration structure buffer, containing BVH nodes for mesh instances, GL_TEXTURE2
+uniform samplerBuffer BLAS; // bottom level acceleration structure buffer, containing BVH nodes for triangles, GL_TEXTURE3
 
 
-#define PRIMITIVE_LENGTH 11
+#define PRIMITIVE_LENGTH 11 // 11 * vec3
+#define TLAS_NODE_LENGTH 8 // 8 * vec4
+#define BLAS_NODE_LENGTH 3 // 3 * vec4
 #define PI 3.14159265359
 #define EPSILON 0.0000001
 
@@ -87,7 +88,7 @@ struct Sphere {
     vec4 quaternion;
     vec3 baseColor;
     int materialType;
-    float fuzziness;
+    float fuzzOrIOR;
 };
 
 struct Triangle {
@@ -102,23 +103,23 @@ struct Triangle {
     vec2 t2;
     vec3 baseColor;
     int materialType;
-    float fuzziness;
+    float fuzzOrIOR;
 };
 
 int getPrimitiveType(int index) {// 0 for triangle, 1 for sphere
-    return int(texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH).x);
+    return int(texelFetch(primitives, index * PRIMITIVE_LENGTH).x);
 }
 
 Sphere getSphere(int index) {
     Sphere sphere;
     vec4 tmp;
-    tmp = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH);
+    tmp = texelFetch(primitives, index * PRIMITIVE_LENGTH);
     sphere.materialType = int(tmp.y);
-    sphere.fuzziness = tmp.z;
-    sphere.baseColor = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 1).xyz;
-    sphere.center = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
-    sphere.quaternion.xyz = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 3).xyz;
-    tmp = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4);
+    sphere.fuzzOrIOR = tmp.z;
+    sphere.baseColor = texelFetch(primitives, index * PRIMITIVE_LENGTH + 1).xyz;
+    sphere.center = texelFetch(primitives, index * PRIMITIVE_LENGTH + 2).xyz;
+    sphere.quaternion.xyz = texelFetch(primitives, index * PRIMITIVE_LENGTH + 3).xyz;
+    tmp = texelFetch(primitives, index * PRIMITIVE_LENGTH + 4);
     sphere.quaternion.w = tmp.x;
     sphere.radius = tmp.y;
     return sphere;
@@ -136,21 +137,11 @@ struct HitRecord {
     bool frontFace;
     vec3 color;
     int materialType;
-    float fuzziness;
+    // fuzziness for metal material, indexOfRefraction for dielectric material
+    float fuzzOrIOR;
     float u, v;
 };
 
-struct SphereGeometry{
-    vec3 center;
-    float radius;
-};
-
-struct TriangleGeometry{
-    vec3 v0;
-    vec3 v1;
-    vec3 v2;
-    vec3 faceNormal;
-};
 
 
 struct BLASNode{
@@ -165,52 +156,32 @@ struct TLASNode{
     int left; // -1 if the node is a leaf
     int right; // -1 if the node is a leaf
     int BLASIndex; // if the node is a leaf, this is the index of the BLAS node, otherwise, it is -1
-    mat4 transform; // if the node is a leaf, this is the transformation matrix, otherwise, it is the identity matrix
-    vec3 baseColor; // if the node is a leaf, this is the base color, otherwise, it is (0, 0, 0)
     int materialType; // if the node is a leaf, this is the material type, otherwise, it is -1
     int textureIndex; // if the node is a leaf and it has texture, this is the index of the texture, otherwise, it is -1
-    float fuzziness; // if the node is a leaf, this is the fuzziness of the metal material, otherwise, it is -1
+    vec3 baseColor; // if the node is a leaf, this is the base color, otherwise, it is (0, 0, 0)
+    float fuzzOrIOR; // if the node is a leaf, this is the fuzziness of the metal material or the index of refraction of the dielectric material, otherwise, it is -1
     vec3 AA, BB; // the axis-aligned bounding box of the node in the world space
+    mat4 transform; // if the node is a leaf, this is the transformation matrix, otherwise, it is the identity matrix
 };
 
-
-// get the geometry of the sphere: center, radius
-// return: vec4(center.x, center.y, center.z, radius)
-SphereGeometry getSphereGeometry(int index) {
-    SphereGeometry geometry;
-    geometry.center = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
-    geometry.radius = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4).y;
-    return geometry;
-}
 
 Triangle getTriangle(int index) {
     Triangle triangle;
     vec4 tmp;
-    tmp = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH);
+    tmp = texelFetch(primitives, index * PRIMITIVE_LENGTH);
     triangle.materialType = int(tmp.y);
-    triangle.fuzziness = tmp.z;
-    triangle.baseColor = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 1).xyz;
-    triangle.v0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
-    triangle.v1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 3).xyz;
-    triangle.v2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4).xyz;
-    triangle.n0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 5).xyz;
-    triangle.n1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 6).xyz;
-    triangle.n2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 7).xyz;
-    triangle.t0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 8).xy;
-    triangle.t1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 9).xy;
-    triangle.t2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 10).xy;
+    triangle.fuzzOrIOR = tmp.z;
+    triangle.baseColor = texelFetch(primitives, index * PRIMITIVE_LENGTH + 1).xyz;
+    triangle.v0 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 2).xyz;
+    triangle.v1 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 3).xyz;
+    triangle.v2 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 4).xyz;
+    triangle.n0 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 5).xyz;
+    triangle.n1 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 6).xyz;
+    triangle.n2 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 7).xyz;
+    triangle.t0 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 8).xy;
+    triangle.t1 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 9).xy;
+    triangle.t2 = texelFetch(primitives, index * PRIMITIVE_LENGTH + 10).xy;
     return triangle;
-}
-
-// get the geometry of the triangle: v0, v1, v2
-TriangleGeometry getTriangleGeometry(int index){
-    TriangleGeometry geometry;
-    geometry.v0 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 2).xyz;
-    geometry.v1 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 3).xyz;
-    geometry.v2 = texelFetch(primitiveBuffer, index * PRIMITIVE_LENGTH + 4).xyz;
-    geometry.faceNormal = normalize(cross(geometry.v1 - geometry.v0, geometry.v2 - geometry.v0));
-    return geometry;
-
 }
 
 
@@ -258,7 +229,7 @@ bool hitSphere(Sphere sphere, Ray ray, float tMin, float tMax, inout HitRecord h
         hitRecord.normal = normalize(hitRecord.p - sphere.center);
         hitRecord.color = sphere.baseColor;
         hitRecord.materialType = sphere.materialType;
-        hitRecord.fuzziness = sphere.fuzziness;
+        hitRecord.fuzzOrIOR = sphere.fuzzOrIOR;
         hitRecord.frontFace = dot(ray.direction, hitRecord.normal) < 0.0;
         if (!hitRecord.frontFace) {
             hitRecord.normal = -hitRecord.normal;
@@ -312,9 +283,9 @@ bool hitTriangle(Triangle triangle, Ray ray, float tMin, float tMax, inout HitRe
         float b0 = 1.0 - b1 - b2;
         normal = normalize(b0 * triangle.n0 + b1 * triangle.n1 + b2 * triangle.n2);
     }
-    if (dot(ray.direction, normal) >= 0.0) {
-        return false;// enable this line to disable back face (back face culling)
-    }
+    //if (dot(ray.direction, normal) >= 0.0) {
+    //    return false;// enable this line to disable back face (back face culling)
+    //}
 
 
     hitRecord.t = t;
@@ -322,7 +293,7 @@ bool hitTriangle(Triangle triangle, Ray ray, float tMin, float tMax, inout HitRe
     hitRecord.normal = normal;
     hitRecord.color = triangle.baseColor;
     hitRecord.materialType = triangle.materialType;
-    hitRecord.fuzziness = triangle.fuzziness;
+    hitRecord.fuzzOrIOR = triangle.fuzzOrIOR;
     hitRecord.frontFace = dot(ray.direction, hitRecord.normal) < 0.0;
     if (!hitRecord.frontFace) {
         hitRecord.normal = -hitRecord.normal;
@@ -350,7 +321,12 @@ float hitAABB(Ray r, vec3 AA, vec3 BB) {
     float t1 = min(tmax.x, min(tmax.y, tmax.z));
     float t0 = max(tmin.x, max(tmin.y, tmin.z));
 
-    return (t1 >= t0) ? ((t0 > 0.0) ? (t0) : (t1)) : (-1);
+    // uehh, I think we should return 0 if the ray starts inside the AABB (t0 < 0.0)
+    // otherwise, BVH traversal will fail when the ray starts inside the AABB, and it might cause
+    // the objects behind the current object to be rendered incorrectly
+    return (t1 >= t0) ? ((t0 > 0.0) ? (t0) : (0.0)) : (-1);
+    //return (t1 >= t0) ? ((t0 > 0.0) ? (t0) : (t1)) : (-1);
+
 }
 
 // hit the primitive array, the primitives to check should be sequential in the array from l to r
@@ -379,10 +355,121 @@ bool hitPrimitiveArray(Ray ray, int l, int r, float tMin, float tMax, inout HitR
     return hit;
 }
 
+
+BLASNode getBLASNode(int index) {
+    BLASNode node;
+    vec4 tmp = texelFetch(BLAS, index * BLAS_NODE_LENGTH);
+    node.left = int(tmp.x);
+    node.right = int(tmp.y);
+    node.n = int(tmp.z);
+    node.primitiveIndex = int(tmp.w);
+    node.AA = texelFetch(BLAS, index * TLAS_NODE_LENGTH + 1).xyz;
+    node.BB = texelFetch(BLAS, index * TLAS_NODE_LENGTH + 2).xyz;
+    return node;
+}
+
+TLASNode getTLASNode(int index) {
+    TLASNode node;
+    vec4 tmp = texelFetch(TLAS, index * TLAS_NODE_LENGTH);
+    node.left = int(tmp.x);
+    node.right = int(tmp.y);
+    node.BLASIndex = int(tmp.z);
+    node.materialType = int(tmp.w);
+    tmp = texelFetch(TLAS, index * TLAS_NODE_LENGTH + 1);
+    node.textureIndex = int(tmp.x);
+    node.baseColor = tmp.yzw;
+    tmp = texelFetch(TLAS, index * TLAS_NODE_LENGTH + 2);
+    node.fuzzOrIOR = tmp.x;
+    node.AA = tmp.yzw;
+    node.BB = texelFetch(TLAS, index * TLAS_NODE_LENGTH + 3).xyz;
+    node.transform = mat4(
+        texelFetch(TLAS, index * TLAS_NODE_LENGTH + 4).xyzw,
+        texelFetch(TLAS, index * TLAS_NODE_LENGTH + 5).xyzw,
+        texelFetch(TLAS, index * TLAS_NODE_LENGTH + 6).xyzw,
+        texelFetch(TLAS, index * TLAS_NODE_LENGTH + 7).xyzw
+    );
+
+    return node;
+}
+
+
+
+
 // BVH traversal, not implemented yet, it now just hits all the primitives
 bool hitBVH(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
     return hitPrimitiveArray(ray, 0, primitiveCount - 1, tMin, tMax, hitRecord);
 }
+// now we assume the each BLAS node contains only one primitive and no child BLAS nodes
+bool hitBLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord, int BLASIndex) {
+    BLASNode node = getBLASNode(BLASIndex);
+    bool hit = false;
+    int primitiveIndex = node.primitiveIndex;
+    if(hitPrimitiveArray(ray, primitiveIndex, primitiveIndex, tMin, tMax, hitRecord)){
+        hit = true;
+    }
+    return hit;
+}
+bool hitTLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+    TLASNode node;
+    bool hit = false;
+    // starting from the root node of the TLAS,
+    // we will traverse the TLAS in leaf node searching
+    // since the TLAS is a binary tree, we will use a stack to store the nodes (non-recursive since it's GLSL not C++)
+    int stack[100];
+    int stackTop = 0;
+    stack[stackTop++] = 0;// push the root node inside the stack
+    while (stackTop > 0) {
+        int nodeIndex = stack[--stackTop];
+        node = getTLASNode(nodeIndex);
+        if (node.BLASIndex != -1) { // leaf node
+            // if the node is a leaf, we will check the BLAS node for intersection
+            // keep the hit record if the intersection is closer
+            // so in the end, the hitRecord will contain the closest intersection
+            // the TLAS leaf node contains the model transformation matrix for the BLAS object
+            // we will apply the inverse transformation to the ray to transform the ray into the object space
+            Ray rayObjectSpace = ray; // not implemented yet
+            if (hitBLAS(rayObjectSpace, tMin, tMax, hitRecord, node.BLASIndex)) {
+                tMax = hitRecord.t;
+                hit = true;
+                // remember to transform the normal and hit point back to the world space
+                // not implemented yet
+
+            }
+        } 
+        else {
+            // we will check the AABB of the node first
+            float t = hitAABB(ray, node.AA, node.BB);
+            if (t != -1 && t < tMax) {
+                // if the AABB is hit, we will push the children nodes into the stack
+                if (node.left != -1) {
+                    stack[stackTop++] = node.left;
+                }
+                if (node.right != -1) {
+                    stack[stackTop++] = node.right;
+                }
+            }
+        }
+    }
+
+
+    return hit;
+}
+
+
+//bool hitTLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+//    TLASNode node;
+//    bool hit = false;
+//    for (int i = 0; i < primitiveCount; i++) {
+//        node = getTLASNode(i);
+//        int BLAS_starting_index = node.BLASIndex;
+//        if(hitBLAS(ray, tMin, tMax, hitRecord, BLAS_starting_index)){
+//            tMax = hitRecord.t;
+//            hit = true;
+//        }
+//
+//    }
+//    return hit;
+//}
 
 float reflectance(float cosine, float refIdx) {
     float r0 = (1.0 - refIdx) / (1.0 + refIdx);
@@ -397,7 +484,7 @@ vec3 rayColor(Ray ray, int maxBounce){
     vec3 attenuation = vec3(1.0);
     for (int i = 0; i < maxBounce; i++) {
         HitRecord hitRecord;
-        if (hitBVH(ray, 0.001, 10000.0, hitRecord)) {
+        if (hitTLAS(ray, 0.001, 10000.0, hitRecord)) {
             vec3 hitPos = hitRecord.p;
             vec3 normal = hitRecord.normal;
             // do scattering according to the material
@@ -411,11 +498,12 @@ vec3 rayColor(Ray ray, int maxBounce){
                 // Metal
                 vec3 reflected = reflect(normalize(ray.direction), normal);
                 ray.origin = hitPos;
-                ray.direction = reflected + hitRecord.fuzziness * SampleHemisphere();
+                ray.direction = reflected + hitRecord.fuzzOrIOR * SampleHemisphere();
                 attenuation *= hitRecord.color;
             } else if (hitRecord.materialType == 2) {
                 // Dielectric
-                float refractionRatio = hitRecord.frontFace ? (1.0 / 1.5) : 1.5;
+                hitRecord.fuzzOrIOR = 1.5; // glass
+                float refractionRatio = hitRecord.frontFace ? (1.0 / hitRecord.fuzzOrIOR) : hitRecord.fuzzOrIOR;
                 vec3 unitDirection = normalize(ray.direction);
                 float cosTheta = min(dot(-unitDirection, normal), 1.0);
                 float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
@@ -428,7 +516,8 @@ vec3 rayColor(Ray ray, int maxBounce){
                 }
                 ray.origin = hitPos;
                 ray.direction = direction;
-                attenuation *= hitRecord.color;
+                // now no attenuation for dielectric material
+                //attenuation *= hitRecord.color;
             }
             else {
                 // show a red color if the material type is not recognized
