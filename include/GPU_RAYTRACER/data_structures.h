@@ -6,7 +6,7 @@
 namespace GPU_RAYTRACER{
 
     struct Material {
-        int type; // 0: lambertian, 1: metal, 2: dielectric
+        int type; // 0: lambertian, 1: metal, 2: dielectric, 3: emissive
         float fuzzOrIOR; // fuzziness of the metal material or index of refraction of the dielectric material
         int textureID; // texture ID, -1 if no texture
         glm::vec3 baseColor;
@@ -37,16 +37,19 @@ namespace GPU_RAYTRACER{
 
     // encoded primitive data
     struct Primitive {
-        glm::vec3 primitiveInfo; // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal), index of refraction (if dielectric)
-        glm::vec3 baseColor;     // base color of the material
+        glm::vec3 primitiveInfo; // x: primitive type(0: triangle, 1: sphere), y: material index (not implemented yet), z: reserved
         glm::vec3 v0, v1, v2;    // position (if sphere, v0: center, vec4(v1.xyz + v2.x): quaternion rotation, v2.y: radius)
         glm::vec3 n1, n2, n3;    // normal (if sphere, these are not used)
-        glm::vec3 t1, t2, t3;    // t.xy: texture coordinate UV (if sphere, same, not used)
+        glm::vec2 t1, t2, t3;    // t.xy: texture coordinate UV (if sphere, same, not used)
     };
 
-    const GLuint PrimitiveSize = sizeof(Primitive); // should be 12 * 11 = 132 bytes
+    const GLuint PrimitiveSize = sizeof(Primitive); // should be 12 * 9 = 108 bytes
     const GLuint TLASNodeSize = sizeof(TLASNode); // should be 128
     const GLuint BLASNodeSize = sizeof(BLASNode); // should be 48
+
+    const GLuint PrimitiveStride = PrimitiveSize / 12; // 12 is the size of a vec3 RGB32F, the stride of the primitive data in the buffer when using TBO to sample the data
+    const GLuint TLASNodeStride = TLASNodeSize / 16; // TLAS TBO we use RGBA32F
+    const GLuint BLASNodeStride = BLASNodeSize / 16; // BLAS TBO we use RGBA32F
 
 
 

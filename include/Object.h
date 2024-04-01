@@ -3,11 +3,11 @@
 
 #include <glm/glm.hpp>
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include <Shader.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <texture.h>
 
 // render context, contains view matrix, projection matrix, camera position, etc.
 // not used currently, we use ubo to pass vp matrix

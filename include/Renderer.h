@@ -7,20 +7,19 @@
 
 #include <Shader.h>
 #include <Camera.h>
-
-
-
+#include <Scene.h>
+#include <InputHandler.h>
 
 #include <iostream>
 #include <chrono>
+#include <list>
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
-#include <list>
 
-#include "Scene.h"
-#include "InputHandler.h"
+
+
 
 
 struct PBR_parameters {

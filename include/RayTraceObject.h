@@ -8,7 +8,8 @@
 enum MaterialType {
     LAMBERTIAN = 0,
     METAL = 1,
-    DIELECTRIC = 2
+    DIELECTRIC = 2,
+    EMISSIVE = 3
 };
 
 
@@ -55,6 +56,9 @@ public:
         else if (type == 2) {
             obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
         }
+        else if (type == 3) {
+            obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
+        }
     
         // then inform the ray tracer to update the TLAS
         // ... not implemented yet
@@ -89,8 +93,7 @@ public:
             Triangle * triangle = dynamic_cast<Triangle*>(obj);
             // encode the triangle to the primitive struct
             GPU_RAYTRACER::Primitive primitive;
-            primitive.primitiveInfo = glm::vec3(0, material.type, material.fuzzOrIOR); // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
-            primitive.baseColor = material.baseColor;
+            primitive.primitiveInfo = glm::vec3(0, 0, 0); // x: primitive type(0: triangle, 1: sphere), yz: reserved
             primitive.v0 = triangle->v0;
             primitive.v1 = triangle->v1;
             primitive.v2 = triangle->v2;
@@ -108,11 +111,10 @@ public:
             glm::quat rotation = glm::quat_cast(modelMatrix);
             // encode the sphere to the primitive struct
             GPU_RAYTRACER::Primitive primitive;
-            primitive.primitiveInfo = glm::vec3(1, material.type, material.fuzzOrIOR); // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
-            primitive.baseColor = material.baseColor;
+            primitive.primitiveInfo = glm::vec3(1, 0, 0); // x: primitive type(0: triangle, 1: sphere), yz: reserved
             primitive.v0 = sphere->center; // center of the sphere
-            primitive.v1 = glm::vec3(1, 2, 3); // rotation quaternion's xyz
-            primitive.v2 = glm::vec3(4, sphere->radius, 0); // rotation quaternion's w, and the radius (the sphere is scaled uniformly, so we can get the radius from any of the scale values)
+            primitive.v1 = glm::vec3(sphere->radius, 0, 0); // v1.x is the radius of the sphere
+            primitive.v2 = glm::vec3(0,0,0);
             primitive.n1 = glm::vec3(0,0,0); // not used
             primitive.n2 = glm::vec3(0,0,0); // not used
             primitive.n3 = glm::vec3(0,0,0); // not used
@@ -130,8 +132,7 @@ public:
                 for (unsigned int i = 0; i < mesh->indices.size(); i+=3){
                     // encode the triangle to the primitive struct
                     GPU_RAYTRACER::Primitive primitive;
-                    primitive.primitiveInfo = glm::vec3(0, material.type, material.fuzzOrIOR); // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
-                    primitive.baseColor = material.baseColor;
+                    primitive.primitiveInfo = glm::vec3(0, 0, 0);
                     primitive.v0 = mesh->positions[mesh->indices[i]];
                     primitive.v1 = mesh->positions[mesh->indices[i+1]];
                     primitive.v2 = mesh->positions[mesh->indices[i+2]];

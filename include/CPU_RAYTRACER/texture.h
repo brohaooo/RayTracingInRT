@@ -1,8 +1,7 @@
 #ifndef CPU_RAYTRACER_TEXTURE_H
 #define CPU_RAYTRACER_TEXTURE_H
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include <stb_image.h>
 #include "utils.h"
 #include <iostream>
 
