@@ -84,7 +84,9 @@ class Renderer {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-        //glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE); // Enable double buffering
+        glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE); // Enable double buffering
+        glfwWindowHint(GLFW_SAMPLES, 4); // Enable multisampling
+
 
 
         #ifdef __APPLE__
@@ -121,17 +123,16 @@ class Renderer {
         }
 
 
-        // configure global opengl state
+        // configure global opengl state (they are not global, but we treat them as global since we probably won't change them)
         // -----------------------------
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glPointSize(8.0);
         glLineWidth(4.0);
-
+        glEnable(GL_MULTISAMPLE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
 
@@ -300,7 +301,18 @@ class Renderer {
 
         // render part is here
         // ------
-        
+
+        // update the UBO data
+        updateUboData();
+        uploadData.eta = pbr_params.eta;
+        uploadData.m = pbr_params.m;
+        uploadData.render_mode = pbr_params.render_mode;
+        uploadData.ka_color = pbr_params.ka_color;
+        uploadData.kd_color = pbr_params.kd_color;
+        uploadData.ks_color = pbr_params.ks_color;
+
+        // upload the UBO data
+        uploadUbo();
         
         // if CPU-raytracing or GPU-raytracing is on, we do this 
         if (render_screenCanvas && screenCanvas != nullptr) {
@@ -309,6 +321,16 @@ class Renderer {
             glClear(GL_DEPTH_BUFFER_BIT); 
             screenCanvas->prepareDraw(context);
             screenCanvas->draw();
+
+            //if (GPURT_manager != nullptr) {
+            //    // disable depth test, because we want to draw the screenCanvas on top of the openGL objects
+            //    glDisable(GL_DEPTH_TEST);
+            //    GPURT_manager->draw_TLAS_AABB();
+            //    GPURT_manager->draw_BLAS_AABB();
+            //    // enable depth test again
+            //    glEnable(GL_DEPTH_TEST);
+            //}
+
             if (render_ImGUI) {
                 render_IMGUI();
             }
@@ -329,17 +351,6 @@ class Renderer {
             object->updateRotation(glm::rotate(glm::mat4(1.0f), glm::radians(pbr_params.rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)));
 		}
 
-        // update the UBO data
-        updateUboData();
-        uploadData.eta = pbr_params.eta;
-        uploadData.m = pbr_params.m;
-        uploadData.render_mode = pbr_params.render_mode;
-        uploadData.ka_color = pbr_params.ka_color;
-        uploadData.kd_color = pbr_params.kd_color;
-        uploadData.ks_color = pbr_params.ks_color;
-
-        // upload the UBO data
-        uploadUbo();
 
         // render the scene using openGL rasterization pipeline
         for (auto object : objects) {
@@ -350,6 +361,7 @@ class Renderer {
         // debug: draw aabb in raytrace_manager
         if (GPURT_manager != nullptr) {
             GPURT_manager->draw_TLAS_AABB();
+            //GPURT_manager->draw_BLAS_AABB();
         }
 
     
@@ -640,13 +652,13 @@ void Renderer::keyboardActions()
 	    }
 
         if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-            enable_camera_movement = false;
-            enable_mouse_input = false;
+            set_camera_movement(false);
+            set_mouse_input(false);
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	    }
         if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-            enable_camera_movement = true;
-            enable_mouse_input = true;
+            set_camera_movement(true);
+            set_mouse_input(true);
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
 

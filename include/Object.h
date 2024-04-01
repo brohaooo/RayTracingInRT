@@ -185,40 +185,73 @@ public:
 	void prepareDraw(const RenderContext& context) override {
 		// not used currently, we use ubo to pass vp matrix
 	}
-	void setModel(glm::mat4 _model) {
+	virtual void setModel(glm::mat4 _model) {
 		model = _model;
 	}
-	void setColor(glm::vec4 _color) {
+	virtual void setColor(glm::vec4 _color) {
 		color = _color;
 	}
 };
 
 
-
+// the sphere object's VBO data is its object space vertex data
+// by default, the sphere is at the origin, with radius 1
 class Sphere : public MVPObject {
 public:
 	GLuint EBO;
+	float radius;
+	glm::vec3 center;
 	Sphere() {
+		radius = 1.0f;
+		center = glm::vec3(0.0f, 0.0f, 0.0f);
+		generateBufferResource();
+	}
+	// another initialization function, set the center and radius of the sphere
+	Sphere(glm::vec3 _center, float _radius) {
+		center = _center;
+		radius = _radius;
+		generateBufferResource();
+	};
+
+	void Delete() override {
+		glDeleteVertexArrays(1, &VAO);
+		glDeleteBuffers(1, &VBO);
+		glDeleteBuffers(1, &EBO);
+	};
+
+
+	void draw() override {
+		shader->use();
+		if (hasTexture) {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			shader->setInt("texture1", 0);
+		}
+		shader->setMat4("model", model);
+		shader->setVec4("color", color);
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 10800, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
+	
+
+	void generateBufferResource(){
 		std::vector<GLfloat> sphereVertices;
-		float radius = 1.0f;
 		int sectors = 60;
 		int stacks = 30;
-
 		int num = (stacks * 2) * sectors * 3;
-
 		for (int i = 0; i <= stacks; ++i) {
 			float stackAngle = glm::pi<float>() / 2.0f - i * glm::pi<float>() / stacks;
 			float y = radius * sin(stackAngle);
-
 			for (int j = 0; j <= sectors; ++j) {
 				float sectorAngle = 2.0f * glm::pi<float>() * j / sectors;
 				float x = radius * cos(stackAngle) * cos(sectorAngle);
 				float z = radius * cos(stackAngle) * sin(sectorAngle);
 
 				// 位置
-				sphereVertices.push_back(x);
-				sphereVertices.push_back(y);
-				sphereVertices.push_back(z);
+				sphereVertices.push_back(x+center.x);
+				sphereVertices.push_back(y+center.y);
+				sphereVertices.push_back(z+center.z);
 
 				// 纹理坐标
 				sphereVertices.push_back((float)j / sectors);
@@ -241,8 +274,6 @@ public:
 			}
 		}
 		glGenBuffers(1, &EBO);
-	
-
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glBindVertexArray(VAO);
@@ -253,32 +284,8 @@ public:
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); // set vertex attribute pointers: uv
 		glEnableVertexAttribArray(1); // activate vertex attribute
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // bind EBO
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * sphereIndices.size(), sphereIndices.data(), GL_STATIC_DRAW); // copy the index data to EBO
-
-
-		glBindVertexArray(0);
-	}
-
-	void Delete() override {
-		glDeleteVertexArrays(1, &VAO);
-		glDeleteBuffers(1, &VBO);
-		glDeleteBuffers(1, &EBO);
-	};
-
-
-	void draw() override {
-		shader->use();
-		if (hasTexture) {
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texture);
-			shader->setInt("texture1", 0);
-		}
-		shader->setMat4("model", model);
-		shader->setVec4("color", color);
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 10800, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
 };
@@ -321,37 +328,25 @@ public:
 class Triangle : public MVPObject {
 public:
 glm::vec3 v0,v1,v2;
-glm::vec3 n1,n2,n3;
+glm::vec3 n0,n1,n2;
+glm::vec2 t0,t1,t2;
 
-Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
-{
-	// a triangle has only one normal(if it is just a single triangle)
-	n1 = n2 = n3 = glm::normalize(glm::cross(v1 - v0, v2 - v0));
-
-	GLfloat vertices[] =
+	Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
 	{
-		// Positions    // uv
-		_v0.x, _v0.y, _v0.z,   0.0f, 1.0f, // left bottom
-		_v1.x, _v1.y, _v1.z,   1.0f, 1.0f, // right bottom
-		_v2.x, _v2.y, _v2.z,   0.5f, 0.0f, // mid top
-		// the back side
-		_v0.x, _v0.y, _v0.z,   0.0f, 1.0f, // left bottom
-		_v2.x, _v2.y, _v2.z,   0.5f, 0.0f, // mid top
-		_v1.x, _v1.y, _v1.z,   1.0f, 1.0f, // right bottom		
+		// a triangle has only one normal(if it is just a single triangle)
+		n0 = n1 = n2 = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+		// default uv
+		t0 = glm::vec2(0, 1);
+		t1 = glm::vec2(1, 1);
+		t2 = glm::vec2(0.5, 0);
+		generateBufferResource();
 	};
-
-		glGenVertexArrays(1, &VAO);
-		glGenBuffers(1, &VBO);
-		glBindVertexArray(VAO);
-		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
-		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); 
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); 
-		glEnableVertexAttribArray(0); 
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); 
-		glEnableVertexAttribArray(1); 
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0); 
-	}
+	Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2, glm::vec3 _t0, glm::vec3 _t1, glm::vec3 _t2):v0(_v0),v1(_v1),v2(_v2),t0(_t0),t1(_t1),t2(_t2)
+	{
+		
+		n0 = n1 = n2 = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+		generateBufferResource();
+	};
 
 	void Delete() override {
 		glDeleteVertexArrays(1, &VAO);
@@ -372,6 +367,30 @@ Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
 		glBindVertexArray(0);
 	}
 
+	void generateBufferResource(){
+		GLfloat vertices[] =
+		{
+			// Positions    	 	// uv
+			v0.x, v0.y, v0.z, 	t0.x, t0.y,   // left bottom
+			v1.x, v1.y, v1.z, 	t1.x, t1.y,   // right bottom
+			v2.x, v2.y, v2.z, 	t2.x, t2.y,   // mid top
+			// the back side	
+			v0.x, v0.y, v0.z, 	t0.x, t0.y,   // left bottom
+			v2.x, v2.y, v2.z, 	t2.x, t2.y,   // mid top
+			v1.x, v1.y, v1.z, 	t1.x, t1.y    // right bottom		
+		};
+		glGenVertexArrays(1, &VAO);
+		glGenBuffers(1, &VBO);
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); 
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); 
+		glEnableVertexAttribArray(0); 
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); 
+		glEnableVertexAttribArray(1); 
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0); 
+	}
 
 };
 
@@ -687,6 +706,7 @@ class Mesh : public MVPObject {
 		}
 		shader->setMat4("model", model);
 		shader->setMat4("rotation", rotation); // tmp implementation
+		shader->setVec4("color", color); // set the color
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -733,6 +753,12 @@ class Model : public MVPObject {
 		
 	}
 
+	void setColor(glm::vec4 _color) override{
+		color = _color;
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->color = _color;
+	}
+
 	void draw() override
 	{
 		for (unsigned int i = 0; i < meshes.size(); i++)
@@ -759,7 +785,7 @@ class Model : public MVPObject {
 			meshes[i]->setShader(_shader);
 	}
 
-	void setModel(glm::mat4 _model) {
+	void setModel(glm::mat4 _model) override {
 		this->model = _model;
 		for (unsigned int i = 0; i < meshes.size(); i++)
 			meshes[i]->setModel(_model);

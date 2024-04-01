@@ -157,16 +157,14 @@ public:
 		glm::vec3 direction_local = glm::vec3(inv_m * glm::vec4(r.direction(), 0.0f));// 0.0f for direction
 		// construct a new ray in local space
 		ray r_local(origin_local, direction_local);
-		//std::cout << "box hit!!" << std::endl;
 		//  do the hit test in local space
 		if (bvh_node->hit(r_local, ray_t, rec)) {
-			//std::cout << "hit mesh" << std::endl;
-			
 			// if hit, transform the hit record back to world space
 			// position and normal need to be transformed by the inverse transpose of the model matrix
 			rec.p = glm::vec3(m * glm::vec4(rec.p, 1.0f));
-			//std::cout << rec.p.x << " " << rec.p.y << " " << rec.p.z << std::endl;
-			rec.normal = glm::normalize(glm::vec3(m * glm::vec4(rec.normal, 0.0f)));
+			// normal need to be transformed by the inverse transpose of the model matrix
+			// because the Model matrix may contain non-uniform scaling
+			rec.normal = glm::normalize(glm::vec3(glm::transpose(inv_m) * glm::vec4(rec.normal, 0.0f)));
 			rec.mat = mat; // material is the same in the mesh (we override the material of the triangles among the same mesh)
 			return true;
 		}

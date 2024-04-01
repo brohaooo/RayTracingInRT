@@ -309,7 +309,7 @@ bool hitTriangle(Triangle triangle, Ray ray, float tMin, float tMax, inout HitRe
 }
 
 // get intersection point of ray and AABB (in t, if not intersect, return -1)
-float hitAABB(Ray r, vec3 AA, vec3 BB) {
+bool hitAABB(Ray r, vec3 AA, vec3 BB, float tMin, float tMax) {
     vec3 invdir = 1.0 / r.direction;
 
     vec3 f = (BB - r.origin) * invdir;
@@ -321,11 +321,14 @@ float hitAABB(Ray r, vec3 AA, vec3 BB) {
     float t1 = min(tmax.x, min(tmax.y, tmax.z));
     float t0 = max(tmin.x, max(tmin.y, tmin.z));
 
-    // uehh, I think we should return 0 if the ray starts inside the AABB (t0 < 0.0)
-    // otherwise, BVH traversal will fail when the ray starts inside the AABB, and it might cause
-    // the objects behind the current object to be rendered incorrectly
-    return (t1 >= t0) ? ((t0 > 0.0) ? (t0) : (0.0)) : (-1);
-    //return (t1 >= t0) ? ((t0 > 0.0) ? (t0) : (t1)) : (-1);
+    tMin = max(t0, tMin);
+    tMax = min(t1, tMax);
+
+    if (tMax < tMin) {
+        return false;
+    }
+
+    return true;
 
 }
 
@@ -363,8 +366,8 @@ BLASNode getBLASNode(int index) {
     node.right = int(tmp.y);
     node.n = int(tmp.z);
     node.primitiveIndex = int(tmp.w);
-    node.AA = texelFetch(BLAS, index * TLAS_NODE_LENGTH + 1).xyz;
-    node.BB = texelFetch(BLAS, index * TLAS_NODE_LENGTH + 2).xyz;
+    node.AA = texelFetch(BLAS, index * BLAS_NODE_LENGTH + 1).xyz;
+    node.BB = texelFetch(BLAS, index * BLAS_NODE_LENGTH + 2).xyz;
     return node;
 }
 
@@ -392,21 +395,79 @@ TLASNode getTLASNode(int index) {
     return node;
 }
 
-
-
-
-// BVH traversal, not implemented yet, it now just hits all the primitives
-bool hitBVH(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
-    return hitPrimitiveArray(ray, 0, primitiveCount - 1, tMin, tMax, hitRecord);
+// transform the ray from world space to model space
+Ray rayWorldToModel(Ray ray, mat4 modelMatrix) {
+    // first get the inverse of the model matrix
+    mat4 invModelMatrix = inverse(modelMatrix);
+    Ray rayModelSpace;
+    rayModelSpace.origin = (invModelMatrix * vec4(ray.origin, 1.0)).xyz;
+    rayModelSpace.direction = (invModelMatrix * vec4(ray.direction, 0.0)).xyz;
+    return rayModelSpace;
 }
-// now we assume the each BLAS node contains only one primitive and no child BLAS nodes
+
+// transform the point from model space to world space
+vec3 pointModelToWorld(vec3 point, mat4 modelMatrix) {
+    vec3 pointWorldSpace = (modelMatrix * vec4(point, 1.0)).xyz;
+    return pointWorldSpace;
+}
+
+// transform the normal from model space to world space
+vec3 normalModelToWorld(vec3 normal, mat4 modelMatrix) {
+    // the normal should be transformed by the inverse transpose of the model matrix
+    // since the model matrix may contain non-uniform scaling
+    mat4 invTranspose = transpose(inverse(modelMatrix));
+    vec3 normalWorldSpace = normalize((invTranspose * vec4(normal, 0.0)).xyz);
+    return normalWorldSpace;
+}
+
+
+//// BVH traversal, not implemented yet, it now just hits all the primitives
+//bool hitBVH(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
+//    return hitPrimitiveArray(ray, 0, primitiveCount - 1, tMin, tMax, hitRecord);
+//}
+
+//// now we assume the each BLAS node contains only one primitive and no child BLAS nodes
+//bool hitBLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord, int BLASIndex) {
+//    BLASNode node = getBLASNode(BLASIndex);
+//    bool hit = false;
+//    int primitiveIndex = node.primitiveIndex;
+//    if(hitPrimitiveArray(ray, primitiveIndex, primitiveIndex, tMin, tMax, hitRecord)){
+//        hit = true;
+//    }
+//    return hit;
+//}
+
 bool hitBLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord, int BLASIndex) {
-    BLASNode node = getBLASNode(BLASIndex);
+    BLASNode node;
     bool hit = false;
-    int primitiveIndex = node.primitiveIndex;
-    if(hitPrimitiveArray(ray, primitiveIndex, primitiveIndex, tMin, tMax, hitRecord)){
-        hit = true;
+    // starting from the root node of the BLAS,
+    int stack[1000];
+    int stackTop = 0;
+    stack[stackTop++] = BLASIndex;// push the root node inside the stack
+    while (stackTop > 0) {
+        int nodeIndex = stack[--stackTop];
+        node = getBLASNode(nodeIndex);
+        if (node.n != 0) { // leaf node
+            if (hitPrimitiveArray(ray, node.primitiveIndex, node.primitiveIndex + node.n - 1, tMin, tMax, hitRecord)) {
+                tMax = hitRecord.t;
+                hit = true;
+            }
+        } 
+        else {
+            // we will check the AABB of the node first
+            bool hit_AABB = hitAABB(ray, node.AA, node.BB, tMin, tMax);
+            if (hit_AABB) {
+                // if the AABB is hit, we will push the children nodes into the stack
+                if (node.left != -1) {
+                    stack[stackTop++] = node.left;
+                }
+                if (node.right != -1) {
+                    stack[stackTop++] = node.right;
+                }
+            }
+        }
     }
+    
     return hit;
 }
 bool hitTLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
@@ -427,19 +488,26 @@ bool hitTLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
             // so in the end, the hitRecord will contain the closest intersection
             // the TLAS leaf node contains the model transformation matrix for the BLAS object
             // we will apply the inverse transformation to the ray to transform the ray into the object space
-            Ray rayObjectSpace = ray; // not implemented yet
+            Ray rayObjectSpace = rayWorldToModel(ray, node.transform);
             if (hitBLAS(rayObjectSpace, tMin, tMax, hitRecord, node.BLASIndex)) {
                 tMax = hitRecord.t;
                 hit = true;
                 // remember to transform the normal and hit point back to the world space
-                // not implemented yet
+                hitRecord.p = pointModelToWorld(hitRecord.p, node.transform);
+                hitRecord.normal = normalModelToWorld(hitRecord.normal, node.transform);
+
+                // CAUTION: I assume all primitives in the same TLAS leaf node have the same material, so we will use the material of the node
+                hitRecord.materialType = node.materialType;
+                hitRecord.color = node.baseColor;
+                hitRecord.fuzzOrIOR = node.fuzzOrIOR;
+
 
             }
         } 
         else {
             // we will check the AABB of the node first
-            float t = hitAABB(ray, node.AA, node.BB);
-            if (t != -1 && t < tMax) {
+            bool hit_AABB = hitAABB(ray, node.AA, node.BB, tMin, tMax);
+            if (hit_AABB) {
                 // if the AABB is hit, we will push the children nodes into the stack
                 if (node.left != -1) {
                     stack[stackTop++] = node.left;
@@ -575,7 +643,20 @@ void main() {
     ray.origin = cameraPos;
     ray.direction = rayDir;
     HitRecord hitRecord;
-    
+
+
+    //---debug---
+    //bool hit = hitBLAS(ray, 0.001, 10000.0, hitRecord, 0);
+    //if(hit){
+    //    imageStore(outputImage, texCoord, vec4(hitRecord.color, 1.0));
+    //    return;
+    //}
+    //else{
+    //    color = texture(skyboxTexture, rayDir).rgb;
+    //    imageStore(outputImage, texCoord, vec4(color, 1.0));
+    //    return;
+    //}
+    //---debug---
 
     color = rayColor(ray, maxDepth);
 

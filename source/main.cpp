@@ -48,8 +48,10 @@ int main() {
         // things to do when state changes
         if (current_state == "Default render state") {
             if (last_state != "Default render state") {
-                renderer.set_camera_movement(true);
-                renderer.set_mouse_input(true);
+                if (last_state == "Displaying CPU ray-tracing result") {
+                    renderer.set_mouse_input(true);   
+                    renderer.set_camera_movement(true);
+                }     
             }
 
 		}
@@ -84,10 +86,10 @@ int main() {
         else if (current_state == "GPU_ray_tracing state") {
             if (last_state != "GPU_ray_tracing state") {
                 
-                // disable input and camera movement for ray tracing
-                renderer.set_mouse_input(true);
-                renderer.set_keyboard_input(true);
-                renderer.set_camera_movement(true);
+                if (last_state == "Displaying CPU ray-tracing result") {
+                    renderer.set_mouse_input(true);   
+                    renderer.set_camera_movement(true);
+                }                
                 renderer.GPURT_manager->activate();
                 renderer.GPURT_manager->resetFrameCounter();
             }

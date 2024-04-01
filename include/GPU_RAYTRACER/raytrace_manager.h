@@ -160,12 +160,6 @@ namespace GPU_RAYTRACER{
                 auto result = transformAABB2WorldSpace(obj->AA, obj->BB, obj->modelMatrix);
                 node.AA = result.first;
                 node.BB = result.second;
-
-                // tmp debug, no model matrix
-                node.AA = obj->AA;
-                node.BB = obj->BB;
-
-
                 node.materialType = obj->material.type;
                 node.textureID = obj->material.textureID;
                 node.baseColor = obj->material.baseColor;
@@ -214,26 +208,6 @@ namespace GPU_RAYTRACER{
 
         void constructTLAS(){
             
-            // with all the objects AABBs(just the root AABBs of each local BLAS trees) and the Model matrices as well as the material info
-            // we can construct the TLAS nodes
-            // test: not bvh, just a list of nodes pointing to each object's root BLAS node
-            // for (int i = 0; i < rayTraceObjects.size(); i++){
-            //     RayTraceObject * obj = rayTraceObjects[i];
-            //     int currentBLASIndex = objectBLASIndex[obj];
-            //     TLASNode node;
-            //     node.left = -1;
-            //     node.right = -1;
-            //     node.BLASIndex = currentBLASIndex;
-            //     node.AA = obj->localBLAS[0].AA;
-            //     node.BB = obj->localBLAS[0].BB;
-            //     node.materialType = obj->material.type;
-            //     node.textureID = obj->material.textureID;
-            //     node.baseColor = obj->material.baseColor;
-            //     node.fuzzOrIOR = obj->material.fuzzOrIOR;
-            //     node.modelMatrix = obj->modelMatrix;
-            //     TLASNodes.push_back(node);
-            // }
-            // build the TLAS BVH
             buildTLASBVH(0, rayTraceObjects.size() - 1);
             
 
@@ -272,18 +246,47 @@ namespace GPU_RAYTRACER{
                 //if (node.BLASIndex == -1){
                 //    continue;
                 //}
-                //glm::vec3 
-
                 // these AABBs are in world space
                 glm::vec3 AA = node.AA;
                 glm::vec3 BB = node.BB;
                 debugAABBShader->use();
                 debugAABBShader->setVec3("AABB_min", AA);
                 debugAABBShader->setVec3("AABB_max", BB);
+                // set the model matrix to identity because the AABB of the TLAS nodes are already in world space
+                glm::mat4 model = glm::mat4(1.0f);
+                debugAABBShader->setMat4("model", model);
+                debugAABBShader->setVec4("lineColor", glm::vec4(1, 1, 1, 1));
 
                 glBindVertexArray(AABB_VAO);
                 glDrawArrays(GL_LINES, 0, 24);
             }
+        };
+
+        void draw_BLAS_AABB(){
+            // draw the AABB of the BLAS nodes
+            for(RayTraceObject * obj : rayTraceObjects){
+                int BLASIndex = objectBLASIndex[obj];
+                glm::mat4 model = obj->modelMatrix;
+                for (int i = 0; i < obj->localBLAS.size(); i++){
+                    BLASNode node = obj->localBLAS[i+BLASIndex];
+                    //if (node.n == 0){
+                    //    continue;
+                    //}
+                    // these AABBs are in world space
+                    glm::vec3 AA = node.AA;
+                    glm::vec3 BB = node.BB;
+                    debugAABBShader->use();
+                    debugAABBShader->setVec3("AABB_min", AA);
+                    debugAABBShader->setVec3("AABB_max", BB);
+                    // set the model matrix
+                    debugAABBShader->setMat4("model", model);
+                    debugAABBShader->setVec4("lineColor", glm::vec4(0, 1, 0, 1));
+
+                    glBindVertexArray(AABB_VAO);
+                    glDrawArrays(GL_LINES, 0, 24);
+                }
+            }
+
         };
         
 
@@ -342,7 +345,7 @@ namespace GPU_RAYTRACER{
             raytraceComputeShader->setInt("imageWidth", width);
             raytraceComputeShader->setInt("imageHeight", height);
             raytraceComputeShader->setInt("primitiveCount", encodedPrimitives.size());
-            raytraceComputeShader->setInt("maxDepth", 5);
+            raytraceComputeShader->setInt("maxDepth", 4);
             raytraceComputeShader->setInt("frameCounter", frameCounter);
             // upload a time
             float time = glfwGetTime();

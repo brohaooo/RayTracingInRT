@@ -125,8 +125,8 @@ class Scene {
         CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
 
         // triangle
-        glm::vec3 v0(-1, 2, 0);
-        glm::vec3 v1(1, 2, 0);
+        glm::vec3 v0(-1, 2, -0.2);
+        glm::vec3 v1(1, 2, 0.2);
         glm::vec3 v2(0, 4, 0);
         CPURT_objects.add(make_shared<CPU_RAYTRACER::triangle>(v0, v1, v2, diffuse_material));
         //CPURT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
@@ -146,19 +146,21 @@ class Scene {
         // skybox
         Skybox * _skybox = new Skybox();
         _skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
-		_skybox->setTexture("../../resource/skybox");
+		    _skybox->setTexture("../../resource/skybox");
 
         this->skybox = _skybox;
 
 
-        // create openGL objects for the above ray tracing objects
-        // the glass sphere
-        Sphere * sphereObject = new Sphere();
-        RayTraceObject * rayTraceObject1 = new RayTraceObject(sphereObject);
-        rayTraceObject1->setMaterial(DIELECTRIC, 1.5, -1, glm::vec4(0.3, 0.4, 0.8, 0.2));
-        rayTraceObject1->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
-        rayTraceObject1->update();
-        rayTraceObjects.push_back(rayTraceObject1);
+        Model* teapot = new Model("../../resource/teapot.obj");
+        RayTraceObject * rayTraceObject7 = new RayTraceObject(teapot);
+        rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, -1, glm::vec4(0.8, 0.6, 0.8, 1.0));
+        rayTraceObject7->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+        rayTraceObject7->update();
+        rayTraceObjects.push_back(rayTraceObject7);
+        objects.push_back(teapot);
+
+
+        
 
         
         // the ground sphere
@@ -168,6 +170,8 @@ class Scene {
         rayTraceObject2->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
         rayTraceObject2->update();
         rayTraceObjects.push_back(rayTraceObject2);
+        objects.push_back(sphereObject2);
+
         
         // the earth sphere
         Sphere* sphereObject3 = new Sphere();
@@ -176,6 +180,7 @@ class Scene {
         rayTraceObject3->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject3->update();
         rayTraceObjects.push_back(rayTraceObject3);
+        objects.push_back(sphereObject3);
 
 
         // the metal sphere
@@ -185,6 +190,7 @@ class Scene {
         rayTraceObject4->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject4->update();
         rayTraceObjects.push_back(rayTraceObject4);
+        objects.push_back(sphereObject4);
 
         //diffuse light sphere
         Sphere* sphereObject5 = new Sphere();
@@ -193,6 +199,7 @@ class Scene {
         rayTraceObject5->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
         rayTraceObject5->update();
         rayTraceObjects.push_back(rayTraceObject5);
+        objects.push_back(sphereObject5);
 
 
 
@@ -202,19 +209,29 @@ class Scene {
         rayTraceObject6->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject6->update();
         rayTraceObjects.push_back(rayTraceObject6);
-        
         objects.push_back(triangleObject);
 
-        objects.push_back(sphereObject2);
-        objects.push_back(sphereObject3);
-        objects.push_back(sphereObject4);
-        objects.push_back(sphereObject5);
+
+        
+
+        
+
+        
+        
+        
         
 
         // then render the skybox
         objects.push_back(skybox);
 
         // put transparent objects at the end of the list, so that they are rendered last
+        // the glass sphere
+        Sphere * sphereObject = new Sphere();
+        RayTraceObject * rayTraceObject1 = new RayTraceObject(sphereObject);
+        rayTraceObject1->setMaterial(DIELECTRIC, 1.5, -1, glm::vec4(0.3, 0.4, 0.8, 0.2));
+        rayTraceObject1->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        rayTraceObject1->update();
+        rayTraceObjects.push_back(rayTraceObject1);
         objects.push_back(sphereObject);
 
 

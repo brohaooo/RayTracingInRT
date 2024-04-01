@@ -17,7 +17,7 @@ namespace GPU_RAYTRACER{
     struct BLASNode {
         // but actually these indices are integer, so we need to convert them back to integer in the shader
         float left, right;         // left and right child index, both -1 if it is a leaf node
-        float n, index;            // number of triangles in the node, and the start index of the triangles in this node         
+        float n, index;            // number of triangles in the node, and the start index of the triangles in this node ( 0 and -1 if it is a leaf node)       
         glm::vec4 AA, BB;        // its AABB bounding box, vec4 for alignment
     };
 
@@ -37,7 +37,7 @@ namespace GPU_RAYTRACER{
 
     // encoded primitive data
     struct Primitive {
-        glm::vec3 primitiveInfo; // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal)
+        glm::vec3 primitiveInfo; // x: primitive type(0: triangle, 1: sphere), y: material type(0: lambertian, 1: metal, 2: dielectric), z: fuzziness (if metal), index of refraction (if dielectric)
         glm::vec3 baseColor;     // base color of the material
         glm::vec3 v0, v1, v2;    // position (if sphere, v0: center, vec4(v1.xyz + v2.x): quaternion rotation, v2.y: radius)
         glm::vec3 n1, n2, n3;    // normal (if sphere, these are not used)
