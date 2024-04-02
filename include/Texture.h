@@ -11,14 +11,22 @@
 #include <glad/glad.h>
 
 #include <string>
+#include <array>
+#include <iostream>
 
 class Texture {
 public:
     int width, height;  // the size of the texture
     int channels;     // the number of channels in the texture
     unsigned char* data; // the pixel data
+    GLenum dataFormat; // the format of the pixel data (in CPU)
+    GLenum internalFormat; // the internal format of the texture (in GPU)
+    
 
-    Texture() : textureRef(0), width(0), height(0), data(nullptr), channels(0) {};
+    Texture(GLenum _dataFormat = GL_UNSIGNED_BYTE, GLenum _internalFormat = GL_RGB) : textureRef(0), width(0), height(0), data(nullptr), channels(0) {
+        internalFormat = _internalFormat;
+        dataFormat = _dataFormat;
+    };
 
     bool loadFromFile(const std::string& filename){
         data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
@@ -29,11 +37,20 @@ public:
         return true;
     }
 
-    void loadFromData(const int w, const int h, const int c, unsigned char* d){
+    void setSize(const int w, const int h, const int c){
         width = w;
         height = h;
         channels = c;
+    }
+
+    void loadFromData(const int w, const int h, const int c, unsigned char* d){
+        setSize(w, h, c);
         data = d;
+    }
+
+    void resizeTexture(const int newWidth, const int newHeight, const int newChannels){
+        resizeData(newWidth, newHeight, newChannels);
+        createGPUTexture();
     }
 
     void resizeData(const int newWidth, const int newHeight, const int newChannels){
@@ -59,6 +76,15 @@ public:
 
 
     void createGPUTexture(){
+        if (textureRef != 0) {
+            glDeleteTextures(1, &textureRef);
+            textureRef = 0;
+        }
+        // if the texture size is 0, then we do not create the texture
+        if (width == 0 || height == 0) {
+            std::cout << "Texture size is 0, not creating the texture" << std::endl;
+            return;
+        }
         glGenTextures(1, &textureRef);
         glBindTexture(GL_TEXTURE_2D, textureRef);
         // set the texture wrapping/filtering options (on the currently bound texture object)
@@ -66,17 +92,12 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        // check if the data is loaded
-        if (data == nullptr) {
-            std::cerr << "No data loaded for texture" << std::endl;
-            return;
-        }
         // load and generate the texture
         if (channels == 3) {
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGB, dataFormat, data);
         }
         else if (channels == 4) {
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGBA, dataFormat, data);
         }
         else {
             std::cerr << "Unsupported number of channels: " << channels << std::endl;
@@ -119,6 +140,63 @@ private:
     Texture& operator=(const Texture&) = delete;
 };
 
+// skybox texture, it has 6 faces, each face is a texture
+class SkyboxTexture {
+    public:
+    std::array<Texture, 6> faces;
+
+    SkyboxTexture(){
+        textureRef = 0;
+    };
+
+    bool loadFromFolder(const std::string & folderPath){
+        std::vector<std::string> faces_path
+		{
+			folderPath + std::string("/right.jpg"),
+			folderPath + std::string("/left.jpg"),
+			folderPath + std::string("/top.jpg"),
+			folderPath + std::string("/bottom.jpg"),
+			folderPath + std::string("/front.jpg"),
+			folderPath + std::string("/back.jpg")
+		};
+        // we need to load each face (only load the texture in CPU, not create the GPU texture resource)
+        for (int i = 0; i < 6; i++) {
+            if (!faces[i].loadFromFile(faces_path[i])) {
+                std::cout << "Failed to load face: " << faces_path[i] << std::endl;
+                return false;
+            }
+        }
+        return true;
+    };
+    void createSkyboxTexture(){
+        glGenTextures(1, &textureRef);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, textureRef);
+        for (unsigned int i = 0; i < faces.size(); i++) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, faces[i].width, faces[i].height, 0, GL_RGB, GL_UNSIGNED_BYTE, faces[i].data);
+        }
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    };
+    void destroy(){
+        for (auto& face : faces) {
+            face.~Texture();
+        }
+
+    };
+
+    unsigned int getTextureRef() const { return textureRef; }
+
+    ~SkyboxTexture() { destroy(); }
+
+    private:
+    unsigned int textureRef;
+    // not copyable
+    SkyboxTexture(const SkyboxTexture&) = delete;
+    SkyboxTexture& operator=(const SkyboxTexture&) = delete;
+};
 
 
 

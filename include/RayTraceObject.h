@@ -4,7 +4,6 @@
 #include "Object.h"
 #include "GPU_RAYTRACER/data_structures.h" // not a good practice, but for now, it is fine, it includes some data structures used in GPU raytracer
 
-
 enum MaterialType {
     LAMBERTIAN = 0,
     METAL = 1,
@@ -34,18 +33,27 @@ public:
         // then inform the ray tracer to update the TLAS
         // ... not implemented yet
     }
-    void setMaterial(int type, float fuzzOrIOR, int textureID, glm::vec4 baseColor, const char * texturePath = "") {
+    void setMaterial(int type, float fuzzOrIOR, glm::vec4 baseColor, Texture * _texture = nullptr) {
         material.type = type; // 0: lambertian, 1: metal, 2: dielectric
-        material.fuzzOrIOR = fuzzOrIOR;
-        material.textureID = textureID;
+        // ensure if fuzziness, it is in the range [0, 1]
+        if (type == 1) {
+            material.fuzzOrIOR = glm::clamp(fuzzOrIOR, 0.0f, 1.0f);
+        }
+        else{
+            material.fuzzOrIOR = fuzzOrIOR;
+        }
+        material.textureID = (texture == nullptr) ? -1 : 0; // -1 if no texture, 0 will later be changed to the texture ID in the texture array in raytrace_manager
         material.baseColor = glm::vec3(baseColor);
         obj->setColor(baseColor);
         // we specify the corresponding shader in default renderer to make it easy to manage the mapping between raytracing material type and rasterization shading shader 
         const char * vertexShaderPath = "../../shaders/texture_shader.vert";
         const char * fragmentShaderPath = "../../shaders/shader.frag";
-        if (textureID != -1) {
+        if (_texture != nullptr) {
             fragmentShaderPath = "../../shaders/texture_shader.frag";
-            obj->setTexture(texturePath);
+            obj->setTexture(_texture);
+            this->texture = _texture;
+            // resize the texture to 1024x1024x3
+            texture->resizeTexture(1024, 1024,3);
         }
         if (type == 0) {
             obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
@@ -63,12 +71,12 @@ public:
         // then inform the ray tracer to update the TLAS
         // ... not implemented yet
     }
-    void setTexture() {
-    }
-    void updatePrimitive() {
-    }
-    void updateBLAS() {
-    }
+    //void setTexture() {
+    //}
+    //void updatePrimitive() {
+    //}
+    //void updateBLAS() {
+    //}
     void update(){
         encodePrimitive();
         constructLocalBLAS();
@@ -80,7 +88,10 @@ public:
     std::vector<GPU_RAYTRACER::Primitive> localEncodedPrimitives;
     std::vector<GPU_RAYTRACER::BLASNode> localBLAS; // the root of the BLAS tree must be the first element of the vector
     GPU_RAYTRACER::Material material; // should later be changed to a pointer to a material object, so that the material can be shared among multiple objects 
-    // (material and texture management is not implemented yet)
+    Texture * texture = nullptr;
+    bool hasTexture() { return texture != nullptr; }
+    Texture * getTexture() { return texture; }
+
 
     private:
     void encodePrimitive() {
@@ -420,17 +431,6 @@ public:
 
 
 };
-
-
-
-
-
-
-
-
-
-
-
 
 
 

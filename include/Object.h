@@ -7,7 +7,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include <texture.h>
+#include <Texture.h>
 
 // render context, contains view matrix, projection matrix, camera position, etc.
 // not used currently, we use ubo to pass vp matrix
@@ -26,9 +26,9 @@ public:
 	// render related opengl objects references
 	GLuint VAO;
 	GLuint VBO;
-	GLuint texture;
 	Shader *shader;
 	bool hasTexture = false;
+	Texture * texture;
 
 
 	// draw function, to be implemented by derived classes
@@ -44,82 +44,9 @@ public:
 	virtual void Delete() = 0;
 
 	// load texture from a const unsigned char* data, used for loading texture from memory
-	virtual void setTexture(const unsigned char* texture_data, int image_width, int image_height, int channels) {
-		// if the object doesn't have a texture, create one
-		if (!hasTexture) {
-			glGenTextures(1, &texture);
-		}
+	virtual void setTexture(Texture * _texture) {
 		hasTexture = true;
-		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-		// set the texture wrapping parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		// set texture filtering parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		if (channels == 3) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image_width, image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, texture_data);
-		}
-		else if (channels == 4) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
-		}
-		
-	}
-	// load texture from a file
-	virtual void setTexture(const char* filename) {
-		// if the object doesn't have a texture, create one
-		if (!hasTexture) {
-			glGenTextures(1, &texture);
-		}
-		//std::cout << texture << std::endl;
-		hasTexture = true;
-		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-		// set the texture wrapping parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		// set texture filtering parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		int image_width, image_height, components_per_pixel;
-		unsigned char* img_data = stbi_load(filename, &image_width, &image_height, &components_per_pixel, 0);
-		if (!img_data)
-		{
-			std::cerr << "ERROR: Could not load texture image file '" << filename << "'.\n";
-			image_width = image_height = 0;
-		}
-
-		if (components_per_pixel == 3) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image_width, image_height, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data);
-		}
-		else if (components_per_pixel == 4) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image_width, image_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data);
-		}
-		else {
-			std::cerr << "ERROR: unknown channel num '" << filename << "channel:" << components_per_pixel <<"'.\n";
-			image_width = image_height = 0;
-		}
-			
-	}
-	// set texture from a texture id (it takes the texture id from another object)
-	virtual void setTexture(GLuint _texture) {
-		hasTexture = true;
-		texture = _texture;
-	}
-
-
-
-	virtual void updateTexture(const unsigned char* texture_data, int image_width, int image_height, int channels) {
-		glBindTexture(GL_TEXTURE_2D, texture); // all upcoming GL_TEXTURE_2D operations now have effect on this texture object
-		if (channels == 3) {
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image_width, image_height, GL_RGB, GL_UNSIGNED_BYTE, texture_data);
-		}
-		else if (channels == 4) {
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, image_width, image_height, GL_RGBA, GL_UNSIGNED_BYTE, texture_data);
-		}
-		else {
-			std::cerr << "ERROR: unknown channel num '" << channels << "'.\n";
-		}
-		
+		this->texture = _texture;
 	}
 };
 
@@ -169,7 +96,7 @@ class Rect : public ScreenSpaceObject {
 			shader->use();
 			if (hasTexture) {
 				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, texture);
+				glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 				shader->setInt("texture1", 0);
 			}	
 			glBindVertexArray(VAO);
@@ -224,7 +151,7 @@ public:
 		shader->use();
 		if (hasTexture) {
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texture);
+			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 			shader->setInt("texture1", 0);
 		}
 		shader->setMat4("model", model);
@@ -309,7 +236,7 @@ public:
 		shader->use();
 		if (hasTexture) {
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texture);
+			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 			shader->setInt("texture1", 0);
 		}
 		shader->setMat4("model", model);
@@ -357,7 +284,7 @@ glm::vec2 t0,t1,t2;
 		shader->use();
 		if (hasTexture) {
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texture);
+			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 			shader->setInt("texture1", 0);
 		}
 		shader->setMat4("model", model);
@@ -397,6 +324,8 @@ glm::vec2 t0,t1,t2;
 // a skybox cube, doesn't need M matrix, has its own shader, has cube texture
 class Skybox : public MVPObject {
 public:
+
+	SkyboxTexture * skyboxTexture;
 	Skybox() {
 		GLfloat skyboxVertices[] = {
 			// positions          
@@ -454,45 +383,10 @@ public:
 
 	};
 
-	// this will now load 6 textures into a cubemap, the texture file need to have names of: back, front, top, bottom, left, right
-	void setTexture(const char* filepath) override {
+	void setTexture(SkyboxTexture * _skyboxTexture) {
 		hasTexture = true;
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
-
-		std::vector<std::string> faces
-		{
-			filepath + std::string("/right.jpg"),
-			filepath + std::string("/left.jpg"),
-			filepath + std::string("/top.jpg"),
-			filepath + std::string("/bottom.jpg"),
-			filepath + std::string("/front.jpg"),
-			filepath + std::string("/back.jpg")
-		};
-
-
-		int width, height, nrChannels;
-		for (unsigned int i = 0; i < faces.size(); i++)
-		{
-			unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
-			if (data)
-			{
-				glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-				stbi_image_free(data);
-			}
-			else
-			{
-				std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
-				stbi_image_free(data);
-			}
-		}
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	};
-
+		this->skyboxTexture = _skyboxTexture;
+	}
 
 
 	void Delete() override {
@@ -508,7 +402,7 @@ public:
 			return;
 		}
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture->getTextureRef());
 		glBindVertexArray(VAO);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		glBindVertexArray(0);
@@ -516,7 +410,7 @@ public:
 	}
 
 private:
-
+	
 
 };
 
@@ -701,7 +595,7 @@ class Mesh : public MVPObject {
 		shader->use();
 		if (hasTexture) {
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texture);
+			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 			shader->setInt("texture1", 0);
 		}
 		shader->setMat4("model", model);
@@ -774,9 +668,9 @@ class Model : public MVPObject {
 			delete meshes[i];
 	}
 
-	void setTexture(const char* filename) override{
+	void setTexture(Texture * _texture) override{
 		for (unsigned int i = 0; i < meshes.size(); i++)
-			meshes[i]->setTexture(filename);
+			meshes[i]->setTexture(_texture);
 	}
 
 	void setShader(Shader* _shader) override{

@@ -26,7 +26,7 @@ class Scene {
 
     std::vector<Object*> objects; // Scene objects to be rendered each frame (not ray tracing, it is openGL rasterization objects)
     std::vector<Model*> rotate_models; // models that can be rotated by imgui, tmp implementation, to rotate the teapot and fish from imgui
-    Skybox* skybox; // skybox object
+    SkyboxTexture * skyboxTexture; // skybox texture
     std::vector<RayTraceObject*> rayTraceObjects; // temporary, for testing ray tracing objects
     // TODO: add lights
     //std::vector<Light*> lights; 
@@ -51,7 +51,7 @@ class Scene {
         //earth->rotate(q);
         
         // metal: reflective material
-        auto metal_material = make_shared<CPU_RAYTRACER::metal>(glm::vec3(0.7, 0.6, 0.5), 0.0);
+        auto metal_material = make_shared<CPU_RAYTRACER::metal>(glm::vec3(0.7, 0.6, 0.5), 0.2);
         CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 0), 1.0, metal_material));
 
         // diffuse light material
@@ -78,16 +78,17 @@ class Scene {
         // ------------------ openGL rasterization objects ------------------
 
         // skybox
+        skyboxTexture = new SkyboxTexture();
+        skyboxTexture->loadFromFolder("../../resource/skybox");
+        skyboxTexture->createSkyboxTexture();
         Skybox * _skybox = new Skybox();
         _skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
-		    _skybox->setTexture("../../resource/skybox");
-
-        this->skybox = _skybox;
+		    _skybox->setTexture(skyboxTexture);
 
 
         Model* teapot = new Model("../../resource/teapot.obj");
         RayTraceObject * rayTraceObject7 = new RayTraceObject(teapot);
-        rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, -1, glm::vec4(0.8, 0.6, 0.8, 1.0));
+        rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, glm::vec4(0.8, 0.6, 0.8, 1.0));
         rayTraceObject7->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
         rayTraceObject7->update();
         rayTraceObjects.push_back(rayTraceObject7);
@@ -100,7 +101,7 @@ class Scene {
         // the ground sphere
         Sphere * sphereObject2 = new Sphere();
         RayTraceObject * rayTraceObject2 = new RayTraceObject(sphereObject2);
-        rayTraceObject2->setMaterial(LAMBERTIAN, 0.0, -1, glm::vec4(0.5, 0.5, 0.5, 1.0));
+        rayTraceObject2->setMaterial(LAMBERTIAN, 0.0, glm::vec4(0.5, 0.5, 0.5, 1.0));
         rayTraceObject2->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
         rayTraceObject2->update();
         rayTraceObjects.push_back(rayTraceObject2);
@@ -108,9 +109,12 @@ class Scene {
 
         
         // the earth sphere
+        Texture * earthTexture = new Texture();
+        earthTexture->loadFromFile("../../resource/earthmap.jpg");
+        earthTexture->createGPUTexture();
         Sphere* sphereObject3 = new Sphere();
         RayTraceObject * rayTraceObject3 = new RayTraceObject(sphereObject3);
-        rayTraceObject3->setMaterial(LAMBERTIAN, 0.0, 0, glm::vec4(1.0, 1.0, 1.0, 1.0), "../../resource/earthmap.jpg");
+        rayTraceObject3->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), earthTexture);
         rayTraceObject3->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject3->update();
         rayTraceObjects.push_back(rayTraceObject3);
@@ -120,7 +124,7 @@ class Scene {
         // the metal sphere
         Sphere* sphereObject4 = new Sphere();
         RayTraceObject * rayTraceObject4 = new RayTraceObject(sphereObject4);
-        rayTraceObject4->setMaterial(METAL, 0.0, -1, glm::vec4(0.7, 0.6, 0.5, 1.0));
+        rayTraceObject4->setMaterial(METAL, 0.2, glm::vec4(0.7, 0.6, 0.5, 1.0));
         rayTraceObject4->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject4->update();
         rayTraceObjects.push_back(rayTraceObject4);
@@ -129,7 +133,7 @@ class Scene {
         //diffuse light sphere
         Sphere* sphereObject5 = new Sphere();
         RayTraceObject * rayTraceObject5 = new RayTraceObject(sphereObject5);
-        rayTraceObject5->setMaterial(EMISSIVE, 0.0, -1, glm::vec4(2, 2, 2, 1.0));
+        rayTraceObject5->setMaterial(EMISSIVE, 0.0, glm::vec4(2, 2, 2, 1.0));
         rayTraceObject5->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
         rayTraceObject5->update();
         rayTraceObjects.push_back(rayTraceObject5);
@@ -139,7 +143,7 @@ class Scene {
 
         Triangle* triangleObject = new Triangle(v0, v1, v2);
         RayTraceObject * rayTraceObject6 = new RayTraceObject(triangleObject);
-        rayTraceObject6->setMaterial(LAMBERTIAN, 0.0, -1, glm::vec4(0.5, 0.5, 0.5, 1.0));
+        rayTraceObject6->setMaterial(LAMBERTIAN, 0.0, glm::vec4(0.5, 0.5, 0.5, 1.0));
         rayTraceObject6->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject6->update();
         rayTraceObjects.push_back(rayTraceObject6);
@@ -147,13 +151,13 @@ class Scene {
 
 
         // then render the skybox
-        objects.push_back(skybox);
+        objects.push_back(_skybox);
 
         // put transparent objects at the end of the list, so that they are rendered last
         // the glass sphere
         Sphere * sphereObject = new Sphere();
         RayTraceObject * rayTraceObject1 = new RayTraceObject(sphereObject);
-        rayTraceObject1->setMaterial(DIELECTRIC, 1.5, -1, glm::vec4(0.3, 0.4, 0.8, 0.2));
+        rayTraceObject1->setMaterial(DIELECTRIC, 1.5, glm::vec4(0.3, 0.4, 0.8, 0.2));
         rayTraceObject1->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject1->update();
         rayTraceObjects.push_back(rayTraceObject1);

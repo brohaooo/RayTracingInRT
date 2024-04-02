@@ -14,17 +14,6 @@ namespace CPU_RAYTRACER {
 		virtual glm::vec3 value(float u, float v, const glm::vec3& p = glm::vec3(0,0,0)) const = 0;
 	};
 
-	class constant_texture : public texture
-	{
-		public:
-		constant_texture(glm::vec3 c) : color(c) {}
-		virtual glm::vec3 value(float u, float v, const glm::vec3& p) const override
-		{
-			return color;
-		}
-		glm::vec3 color;
-	};
-
 	class image_texture : public texture
 	{
 		public:

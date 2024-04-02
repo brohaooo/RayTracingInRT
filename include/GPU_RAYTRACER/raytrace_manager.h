@@ -5,6 +5,8 @@
 #include "data_structures.h"
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
+
 
 namespace GPU_RAYTRACER{
 
@@ -13,17 +15,13 @@ namespace GPU_RAYTRACER{
         RaytraceManager(int _width, int _height, const Camera * _camera, Rect * _screenCanvas) : camera(_camera), screenCanvas(_screenCanvas), width(_width), height(_height)
         {
             // generate the render texture
-            glGenTextures(1, &renderTexture);
-            glBindTexture(GL_TEXTURE_2D, renderTexture);
+            renderTexture = new Texture(GL_FLOAT, GL_RGBA32F);            
+
+
             // upload an green image for now, we will replace it with the result of the ray tracing
             std::vector<glm::vec4> greenImage(width * height, glm::vec4(0, 100, 0, 1));
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, greenImage.data());
-
-            //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glBindTexture(GL_TEXTURE_2D, 0);
-
+            renderTexture->loadFromData(width, height, 4, reinterpret_cast<unsigned char*>(greenImage.data()));
+            renderTexture->createGPUTexture();
 
             // generate the texture buffer for the primitives
             glGenBuffers(1, &primitiveBuffer);
@@ -49,6 +47,15 @@ namespace GPU_RAYTRACER{
             glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, BLASBuffer);// vec4 would be more efficient
             glBindTexture(GL_TEXTURE_BUFFER, 0);
 
+            // generate the texture array for the scene textures
+            glGenTextures(1, &sceneTextureArray);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, sceneTextureArray);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+
 
             // compile the compute shader
             setShaders();
@@ -58,7 +65,8 @@ namespace GPU_RAYTRACER{
             width = _width;
             height = _height;
             // resize the render texture
-            glBindTexture(GL_TEXTURE_2D, renderTexture);
+            renderTexture->resizeTexture(width, height, 4);
+            glBindTexture(GL_TEXTURE_2D, renderTexture->getTextureRef());
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -70,7 +78,7 @@ namespace GPU_RAYTRACER{
         };
         // include skybox, objects, dynamic_cast to check the type of the object
         // and store the object in the corresponding list (triangles, spheres, skybox)
-        void loadScene(std::vector<RayTraceObject*> _rayTraceObjects, Skybox* skybox){
+        void loadScene(std::vector<RayTraceObject*> _rayTraceObjects, SkyboxTexture* _skyboxTexture){
             // clear the previous data
             encodedPrimitives.clear();
             this->rayTraceObjects = _rayTraceObjects;
@@ -80,18 +88,27 @@ namespace GPU_RAYTRACER{
                 int currentPrimitiveIndex = encodedPrimitives.size();
                 objectPrimitiveIndex[obj] = currentPrimitiveIndex;
                 encodedPrimitives.insert(encodedPrimitives.end(), obj->localEncodedPrimitives.begin(), obj->localEncodedPrimitives.end());
+                // if has texture, add it to the textureIDMap, and set the textureID of the material
+                if (obj->hasTexture()){
+                    // add the texture to the textureIDMap
+                    addTexture(obj->getTexture());
+                    // set the textureID of the material
+                    obj->material.textureID = textureIDMap[obj->getTexture()];
+                }
             }
 
 
             
-            if (skybox != nullptr){
+            if (_skyboxTexture != nullptr){
                 hasSkybox = true;
-                skyboxTexture = skybox->texture;    
+                this->skyboxTexture = _skyboxTexture;
             }
             // construct BVH tree
             constructBVH();
             // upload the scene data to the GPU
             uploadSceneData();
+            // upload the scene textures
+            uploadSceneTextureArray();
 
         };
         // with its gpu ray tracing shader, render the scene (two passes: first pass for ray tracing, second pass for displaying the result)
@@ -104,11 +121,11 @@ namespace GPU_RAYTRACER{
             // bind the compute shader
             raytraceComputeShader->use();
             // bind the render texture
-            glBindImageTexture(2, renderTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+            glBindImageTexture(2, renderTexture->getTextureRef(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
             // bind the skybox texture to texture unit 1
             if (hasSkybox){
                 glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture->getTextureRef());
             }
             // bind the primitive texture to texture unit 0
             glActiveTexture(GL_TEXTURE0);
@@ -119,6 +136,10 @@ namespace GPU_RAYTRACER{
             // bind the BLAS texture to texture unit 3
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_BUFFER, BLASTexture);
+
+            // bind the scene texture array to texture unit 4
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, sceneTextureArray);
             
 
             // dispatch the compute shader, local size is 16x16x1
@@ -318,7 +339,7 @@ namespace GPU_RAYTRACER{
             // upload the skybox texture
             if (hasSkybox){
                 glActiveTexture(GL_TEXTURE1); // skybox texture will be bound to texture unit 1, we specify this in the shader
-                glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture->getTextureRef());
                 // set the sampler for the skybox texture
                 raytraceComputeShader->setInt("skyboxTexture", 1);
             }
@@ -336,6 +357,7 @@ namespace GPU_RAYTRACER{
             raytraceComputeShader->setInt("skyboxTexture", 1); // skybox texture is bound to texture unit 1
             raytraceComputeShader->setInt("TLAS", 2); // TLAS texture is bound to texture unit 2
             raytraceComputeShader->setInt("BLAS", 3); // BLAS texture is bound to texture unit 3
+            raytraceComputeShader->setInt("sceneTextures", 4); // scene texture array is bound to texture unit 4
             raytraceComputeShader->setVec3("cameraPos", camera->Position);
             raytraceComputeShader->setVec3("cameraFront", camera->Front);
             raytraceComputeShader->setVec3("cameraUp", camera->Up);
@@ -387,15 +409,15 @@ namespace GPU_RAYTRACER{
             screenCanvas->setTexture(renderTexture);
         };
         // deactivate the GPU ray tracing pipeline, it will unbind the shader for screenCanvas
-        void deactivate(){
-            screenCanvas->texture = 0;
-            screenCanvas->hasTexture = false;
-        }
+        // void deactivate(){
+        //     screenCanvas->texture = 0;
+        //     screenCanvas->hasTexture = false;
+        // }
         void resetFrameCounter(){
             frameCounter = 0;
         };
     private:
-        GLuint renderTexture; // texture to render the result of the ray tracing
+        Texture * renderTexture; // render texture object
         GLuint TLASBuffer; // top level acceleration structure buffer
         GLuint TLASTexture; // texture buffer for the TLAS
         GLuint BLASBuffer; // bottom level acceleration structure buffer
@@ -403,7 +425,7 @@ namespace GPU_RAYTRACER{
         GLuint primitiveBuffer; // tbo for primitives (triangles/spheres)
         GLuint primitiveTexture; // texture buffer for the primitives
         bool hasSkybox = false;
-        GLuint skyboxTexture; // skybox texture
+        SkyboxTexture * skyboxTexture; // skybox texture
 
         std::vector<RayTraceObject*> rayTraceObjects; // objects in the scene
         std::unordered_map<RayTraceObject*, int> objectPrimitiveIndex; // map from object ptr to its Primitive starting index(shift amount in the primitive buffer)
@@ -425,23 +447,58 @@ namespace GPU_RAYTRACER{
         int width, height;
         int frameCounter = 0;
         
+        // a mapping between the Texture object and the texture ID in the raytrace_manager's texture array from 0 to N
+        std::unordered_map<Texture*, int> textureIDMap;
+        std::unordered_set<int> textureIDSet;
+        const int maxTextureCount = 16;
 
+        void addTexture(Texture * texture){
+            if (textureIDMap.find(texture) == textureIDMap.end()){
+                bool inserted = false;
+                for (int i = 0; i < maxTextureCount; i++){
+                    if (textureIDSet.find(i) == textureIDSet.end()){
+                        textureIDSet.insert(i);
+                        textureIDMap[texture] = i;
+                        inserted = true;
+                        break;
+                    }
+                }
+                if (!inserted){
+                    std::cout<<"[addTexture]: error: texture array is full"<<std::endl;
+                }
+            }
+        };
+
+        void removeTexture(Texture * texture){
+            if (textureIDMap.find(texture) != textureIDMap.end()){
+                int textureID = textureIDMap[texture];
+                textureIDSet.erase(textureID);
+                textureIDMap.erase(texture);
+            }
+        };
+
+        GLuint sceneTextureArray; // texture array for the scene textures
+
+        void uploadSceneTextureArray(){
+            // use the textureIDMap to upload the texture array to the compute shader
+            int textureCount = textureIDMap.size();
+            glBindTexture(GL_TEXTURE_2D_ARRAY, sceneTextureArray);
+            // we enforce the texture size to be 1024x1024 and the format to be GL_RGB in the raytracing texture array
+            glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, 1024, 1024, textureCount, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+            // upload the textures to the texture array
+            for (auto it = textureIDMap.begin(); it != textureIDMap.end(); it++){
+                Texture * texture = it->first;
+                int textureID = it->second;
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, textureID, 1024, 1024, 1, GL_RGB, GL_UNSIGNED_BYTE, texture->data);
+            }
+
+
+        }
 
 
     };
 
-
-
-
-
-
-
-
-
-
-
-
-
+    
 
 
 }

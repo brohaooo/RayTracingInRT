@@ -21,6 +21,8 @@ uniform samplerBuffer primitives; // primitive buffer, contains all the model da
 uniform samplerBuffer TLAS; // top level acceleration structure buffer, containing BVH nodes for mesh instances, GL_TEXTURE2
 uniform samplerBuffer BLAS; // bottom level acceleration structure buffer, containing BVH nodes for triangles, GL_TEXTURE3
 
+uniform sampler2DArray sceneTextures; // texture sampler, it contains all the textures needed for the scene, GL_TEXTURE4
+
 // we must define them as MACRO
 // otherwise, the GLSL compiler will not allow us to use them for sampling TBO
 // I don't know why, but it's the truth
@@ -481,6 +483,13 @@ bool hitTLAS(Ray ray, float tMin, float tMax, inout HitRecord hitRecord) {
                 // CAUTION: I assume all primitives in the same TLAS leaf node have the same material, so we will use the material of the node
                 hitRecord.materialType = node.materialType;
                 hitRecord.color = node.baseColor;
+                // if have texture, we will use the texture color * base color
+                if (node.textureIndex != -1) {
+                    vec2 uv = vec2(hitRecord.u, hitRecord.v);
+                    vec3 textureColor = texture(sceneTextures, vec3(uv, node.textureIndex)).rgb;
+                    hitRecord.color *= textureColor;
+                }
+
                 hitRecord.fuzzOrIOR = node.fuzzOrIOR;
             }
         } 
@@ -638,6 +647,11 @@ void main() {
     // mix the color with the last frame (temporal denoising)
     vec3 lastColor = imageLoad(outputImage, texCoord).rgb;
     color = mix(lastColor, color, 1.0/float(frameCounter));
+
+    //vec2 uv = vec2(float(texCoord.x) / float(imageWidth), float(texCoord.y) / float(imageHeight));
+    //vec3 testSampleArrayTexture = texture(sceneTextures, vec3(uv, 0)).rgb;
+    //imageStore(outputImage, texCoord, vec4(testSampleArrayTexture, 1.0));
+    //return;
     
     imageStore(outputImage, texCoord, vec4(color, 1.0));
     return;

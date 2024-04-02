@@ -186,6 +186,12 @@ class Renderer {
         // set up the screenCanvas, it will be used to display the ray tracing result (either CPU version or GPU version)
         screenCanvas = new Rect();
 
+        // set up the CPU ray tracing camera's output texture
+        // it has an alpha channel, to blend with the openGL scene objects
+        CPU_rendered_texture = new Texture(GL_UNSIGNED_BYTE, GL_RGBA);
+        CPU_rendered_texture->setSize(screen_width, screen_height, 4);
+        CPU_rendered_texture->createGPUTexture();
+
 
         GPURT_manager = new GPU_RAYTRACER::RaytraceManager(screen_width, screen_height, GL_camera, screenCanvas);
 
@@ -381,7 +387,7 @@ class Renderer {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-        float fps = 1.0f / deltaTime;
+        fps = 1.0f / deltaTime;
         LastTime += deltaTime;
 
 
@@ -395,6 +401,9 @@ class Renderer {
             num_frames_in_sliding_window++;
         }
         average_fps = 1.0f * (num_frames_in_sliding_window - 1) / (frameTime_list.back() - frameTime_list.front());
+        // based on the fps, we define whether the simulation is in real time or not
+        // if the average fps is less than 24, we consider it as not real time
+        is_realtime = fps > 24.0f;
     }
 
     void render_IMGUI() {
@@ -407,7 +416,7 @@ class Renderer {
         if (ImGui::Begin("LOG", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
 
 			//ImGui::Text("FPS: %.1f \t AVG_FPS: %.1f", fps, average_fps);
-			ImGui::Text("FPS: %.1f ", average_fps);
+			ImGui::Text("FPS: %.1f ", fps); ImGui::SameLine(); ImGui::Text("| %.1f ", average_fps);
 			ImGui::Text("IS_REALTIME: %s", is_realtime ? "TRUE" : "FALSE");
 			ImGui::Text("CAM POS: %.3f %.3f %.3f", GL_camera->Position[0], GL_camera->Position[1], GL_camera->Position[2]);
 			ImGui::Text("CAM DIR: %.3f %.3f %.3f", GL_camera->Front[0], GL_camera->Front[1], GL_camera->Front[2]);
@@ -444,14 +453,13 @@ class Renderer {
             std::cout<<"ERROR: screenCanvas is nullptr"<<std::endl;
             return;
         }
-        // no matter how many times this function executes, we always use the same texture (owned by this function)
+        // no matter how many times this function executes, we always use the same texture
         // so we don't need to create a new texture every time
         // and GPU ray tracer will use another texture to display the result
-        if (CPU_rendered_texture == 0) {
-            glGenTextures(1, &CPU_rendered_texture);
-        }
         screenCanvas->setTexture(CPU_rendered_texture);// first declear this empty texture to be used by the screenCanvas
-        screenCanvas->setTexture(rendered_output, screen_width, screen_height,4); // specify its structure info
+        // update the texture with the new data
+        CPU_rendered_texture->loadFromData(screen_width, screen_height, 4, rendered_output);
+        CPU_rendered_texture->updateGPUTexture();
         screenCanvas->setShader(new Shader("../../shaders/texture_display.vert", "../../shaders/texture_display.frag"));
 	}
 
@@ -491,9 +499,14 @@ class Renderer {
     }
 
     void updateCPUTexture() {
+        if (CPU_rendered_texture == nullptr) {
+            std::cout << "ERROR: CPU_rendered_texture is nullptr" << std::endl;
+            return;
+        }
         unsigned char* rendered_output = CPURT_camera->rendered_image;
         screenCanvas->setTexture(CPU_rendered_texture);
-        screenCanvas->updateTexture(rendered_output, screen_width, screen_height, 4);
+        CPU_rendered_texture->loadFromData(screen_width, screen_height, 4, rendered_output);
+        CPU_rendered_texture->updateGPUTexture();
         context.flipYCoord = true; // because our CPU ray tracing image is flipped (origin at top-left corner, while openGL is at bottom-left corner)
     }
 
@@ -530,6 +543,7 @@ class Renderer {
     float LastTime = 0.0f;
     bool is_realtime = true; // the current simulation is in real time or not
     float average_fps = 0.0f;
+    float fps = 0.0f;
     float sliding_deltaTime = 0.0f;
     const int num_frames_to_average = 100;
     int num_frames_in_sliding_window = 0;
@@ -541,7 +555,7 @@ class Renderer {
     bool isDownKeyPressed = false;
 
     // CPU ray tracing camera output texture
-    GLuint CPU_rendered_texture = 0;
+    Texture * CPU_rendered_texture = nullptr;
 
 };
 

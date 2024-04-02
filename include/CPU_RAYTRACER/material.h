@@ -24,8 +24,8 @@ namespace CPU_RAYTRACER {
 
   class lambertian : public material {
     public:
-      lambertian(const glm::vec3& a) : albedo(make_shared<constant_texture>(a)) {}
-      lambertian(shared_ptr<texture> a) : albedo(a) {}
+      lambertian(const glm::vec3& color) : material_texture(nullptr), base_color(color) {}
+      lambertian(shared_ptr<texture> tex, const glm::vec3& color = glm::vec3(1,1,1)) : material_texture(tex), base_color(color) {}
 
       bool scatter(const ray& r_in, const hit_record& rec, glm::vec3& attenuation, ray& scattered)
       const override {
@@ -36,29 +36,40 @@ namespace CPU_RAYTRACER {
               scatter_direction = rec.normal;
 
           scattered = ray(rec.p, scatter_direction);
-          attenuation = albedo->value(rec.u, rec.v, rec.p);
+          if (material_texture == nullptr)
+              attenuation = base_color;
+          else{
+              attenuation = material_texture->value(rec.u, rec.v, rec.p)*base_color;
+          }
+          
           return true;
       }
 
     private:
-      shared_ptr<texture> albedo;
+      glm::vec3 base_color;
+      shared_ptr<texture> material_texture;
   };
 
 
   class metal : public material {
     public:
-      metal(const glm::vec3& a, float f) : albedo(a), fuzz(f < 1 ? f : 1) {}
+      metal(const glm::vec3& color, float f) : base_color(color), fuzz(f < 1 ? f : 1), material_texture(nullptr) {}
+      metal(shared_ptr<texture> tex, const glm::vec3& color = glm::vec3(1,1,1), float f = 0) : base_color(color), fuzz(f < 1 ? f : 1), material_texture(tex) {}
 
       bool scatter(const ray& r_in, const hit_record& rec, glm::vec3& attenuation, ray& scattered)
       const override {
           glm::vec3 reflected = reflect(glm::normalize(r_in.direction()), rec.normal);
           scattered = ray(rec.p, reflected + fuzz*random_in_unit_sphere());
-          attenuation = albedo;
+          attenuation = base_color;
+          if (material_texture != nullptr){
+              attenuation *= material_texture->value(rec.u, rec.v, rec.p);
+          }
           return (dot(scattered.direction(), rec.normal) > 0);
       }
 
     private:
-      glm::vec3 albedo;
+      glm::vec3 base_color;
+      shared_ptr<texture> material_texture;
       float fuzz;
   };
 
@@ -102,8 +113,8 @@ namespace CPU_RAYTRACER {
 
   class diffuse_light : public material {
     public:
-  	diffuse_light(shared_ptr<texture> a) : emit(a) {}
-  	diffuse_light(glm::vec3 c) : emit(make_shared<constant_texture>(c)) {}
+  	diffuse_light(const glm::vec3& color) : material_texture(nullptr), base_color(color) {}
+  	diffuse_light(shared_ptr<texture> tex, const glm::vec3& color = glm::vec3(1,1,1)) : material_texture(tex), base_color(color) {}
 
   	bool scatter(const ray& r_in, const hit_record& rec, glm::vec3& attenuation, ray& scattered)
   	const override {
@@ -114,11 +125,17 @@ namespace CPU_RAYTRACER {
           float u = rec.u;
           float v = rec.v;
           glm::vec3 p = rec.p;
-  		return emit->value(u, v, p);
+          if (material_texture == nullptr){
+              return base_color;
+          }
+          else{
+              return material_texture->value(u, v, p)*base_color;
+          }
   	}
 
     private:
-  	shared_ptr<texture> emit;
+  	glm::vec3 base_color;
+    shared_ptr<texture> material_texture;
   };
 }
 
