@@ -115,7 +115,9 @@ class Scene {
         Sphere* sphereObject3 = new Sphere();
         RayTraceObject * rayTraceObject3 = new RayTraceObject(sphereObject3);
         rayTraceObject3->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), earthTexture);
-        rayTraceObject3->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        glm::vec3 rotationAxis = glm::vec3(0, 1, 0); // 旋转轴（绕y轴）
+        glm::mat4 identity = glm::mat4(1.0);
+        rayTraceObject3->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::rotate(identity, glm::radians(90.0f), rotationAxis) *glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject3->update();
         rayTraceObjects.push_back(rayTraceObject3);
         objects.push_back(sphereObject3);
@@ -130,7 +132,7 @@ class Scene {
         rayTraceObjects.push_back(rayTraceObject4);
         objects.push_back(sphereObject4);
 
-        //diffuse light sphere
+        // diffuse light sphere
         Sphere* sphereObject5 = new Sphere();
         RayTraceObject * rayTraceObject5 = new RayTraceObject(sphereObject5);
         rayTraceObject5->setMaterial(EMISSIVE, 0.0, glm::vec4(2, 2, 2, 1.0));

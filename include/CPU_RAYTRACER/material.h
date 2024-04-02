@@ -73,7 +73,7 @@ namespace CPU_RAYTRACER {
       float fuzz;
   };
 
-
+  // dielectric material does not have base color, it is transparent, and only do perfect reflection and refraction
   class dielectric : public material {
     public:
       dielectric(float index_of_refraction) : ir(index_of_refraction) {}

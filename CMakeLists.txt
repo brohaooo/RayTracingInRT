@@ -10,9 +10,6 @@ project(RayTracingInRT)
 add_subdirectory(./3rd_party/glfw-3.3.8)
 add_subdirectory(./3rd_party/assimp)
 
-# GLM
-add_compile_definitions(GLM_LANG_STL11_FORCED) # fix GLM compile error in clang++
-
 set(IMGUI_FILES
 ./3rd_party/imgui/imgui.cpp
 ./3rd_party/imgui/imgui_draw.cpp
