@@ -292,13 +292,12 @@ bool hitTriangle(Triangle triangle, Ray ray, float tMin, float tMax, inout HitRe
     if (!hitRecord.frontFace) {
         hitRecord.normal = -hitRecord.normal;
     }
-    // not implemented texture material yet
-    if (false) {
-        float b0 = 1.0 - b1 - b2;
-        vec2 uv = b0 * triangle.t0 + b1 * triangle.t1 + b2 * triangle.t2;
-        hitRecord.u = uv.x;
-        hitRecord.v = uv.y;
-    }
+    
+    float b0 = 1.0 - b1 - b2;
+    vec2 uv = b0 * triangle.t0 + b1 * triangle.t1 + b2 * triangle.t2;
+    hitRecord.u = uv.x;
+    hitRecord.v = uv.y;
+    
     return true;
 }
 

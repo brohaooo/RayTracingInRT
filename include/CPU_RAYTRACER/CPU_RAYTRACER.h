@@ -11,6 +11,8 @@
 #include "material.h"
 #include "sphere.h"
 #include "triangle.h"
+#include "mesh.h"
+#include "transform.h"
 
 
 #endif

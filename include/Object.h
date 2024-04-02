@@ -60,14 +60,14 @@ class Rect : public ScreenSpaceObject {
 		Rect() {
 			GLfloat vertices[] =
 			{
-				// Positions    // uv
-				-1.0f,  1.0f,   0.0f, 1.0f, // left top
-				-1.0f, -1.0f,   0.0f, 0.0f, // left bottom
-					1.0f, -1.0f,   1.0f, 0.0f, // right bottom
+				// Positions    	// uv
+				-1.0f,  1.0f,   	0.0f, 1.0f, // left top
+				-1.0f, 	-1.0f,   	0.0f, 0.0f, // left bottom
+				1.0f, 	-1.0f,    	1.0f, 0.0f, // right bottom
 
-					-1.0f,  1.0f,  0.0f, 1.0f, // left top
-					1.0f, -1.0f,  1.0f, 0.0f, // right bottom
-					1.0f,  1.0f,  1.0f, 1.0f  // right top
+				-1.0f, 	1.0f,  		0.0f, 1.0f, // left top
+				1.0f, 	-1.0f,   	1.0f, 0.0f, // right bottom
+				1.0f,  	1.0f,   	1.0f, 1.0f  // right top
 			};
 
 			glGenVertexArrays(1, &VAO);
@@ -175,12 +175,19 @@ public:
 				float x = radius * cos(stackAngle) * cos(sectorAngle);
 				float z = radius * cos(stackAngle) * sin(sectorAngle);
 
-				// 位置
+				// position
 				sphereVertices.push_back(x+center.x);
 				sphereVertices.push_back(y+center.y);
 				sphereVertices.push_back(z+center.z);
 
-				// 纹理坐标
+				// normal
+				glm::vec3 normal = glm::normalize(glm::vec3(x, y, z));
+				sphereVertices.push_back(normal.x);
+				sphereVertices.push_back(normal.y);
+				sphereVertices.push_back(normal.z);
+				
+
+				// uv
 				sphereVertices.push_back((float)j / sectors);
 				sphereVertices.push_back((float)i / stacks);
 			}
@@ -206,10 +213,12 @@ public:
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
 		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * sphereVertices.size(), sphereVertices.data(), GL_STATIC_DRAW); 
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); // set vertex attribute pointers: position
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); // set vertex attribute pointers: position
 		glEnableVertexAttribArray(0); // activate vertex attribute
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); // set vertex attribute pointers: uv
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); // set vertex attribute pointers: normal
 		glEnableVertexAttribArray(1); // activate vertex attribute
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); // set vertex attribute pointers: uv
+		glEnableVertexAttribArray(2); // activate vertex attribute
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO); // bind EBO
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * sphereIndices.size(), sphereIndices.data(), GL_STATIC_DRAW); // copy the index data to EBO
@@ -297,24 +306,26 @@ glm::vec2 t0,t1,t2;
 	void generateBufferResource(){
 		GLfloat vertices[] =
 		{
-			// Positions    	 	// uv
-			v0.x, v0.y, v0.z, 	t0.x, t0.y,   // left bottom
-			v1.x, v1.y, v1.z, 	t1.x, t1.y,   // right bottom
-			v2.x, v2.y, v2.z, 	t2.x, t2.y,   // mid top
-			// the back side	
-			v0.x, v0.y, v0.z, 	t0.x, t0.y,   // left bottom
-			v2.x, v2.y, v2.z, 	t2.x, t2.y,   // mid top
-			v1.x, v1.y, v1.z, 	t1.x, t1.y    // right bottom		
+			// Positions    	// normals			// uv
+			v0.x, v0.y, v0.z, 	n0.x, n0.y, n0.z,	t0.x, t0.y,   // left bottom
+			v1.x, v1.y, v1.z, 	n1.x, n1.y, n1.z,	t1.x, t1.y,   // right bottom
+			v2.x, v2.y, v2.z,	n2.x, n2.y, n2.z,	t2.x, t2.y,    // right top 
+			// the back side
+			v0.x, v0.y, v0.z,	n0.x, n0.y, n0.z,	t0.x, t0.y,   // left bottom 
+			v2.x, v2.y, v2.z,	n2.x, n2.y, n2.z,	t2.x, t2.y,   // right top 
+			v1.x, v1.y, v1.z,	n1.x, n1.y, n1.z,	t1.x, t1.y    // right bottom 
 		};
 		glGenVertexArrays(1, &VAO);
 		glGenBuffers(1, &VBO);
 		glBindVertexArray(VAO);
 		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); 
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0); 
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); // position
 		glEnableVertexAttribArray(0); 
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float))); 
-		glEnableVertexAttribArray(1); 
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); // normal
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); // uv
+		glEnableVertexAttribArray(2); 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0); 
 	}

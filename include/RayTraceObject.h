@@ -156,6 +156,7 @@ public:
                     localEncodedPrimitives.push_back(primitive);
                 }
             }
+            std::cout<<"debug"<<std::endl;
             
         }
         else{
@@ -163,6 +164,7 @@ public:
             std::cout<<"unsupported object type"<<std::endl;
         
         }
+        
     }
     void constructLocalBLAS() {
         // construct local BLAS from the object

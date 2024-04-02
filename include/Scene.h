@@ -36,34 +36,71 @@ class Scene {
         // different materials:
         // lambertian: diffuse material
         auto diffuse_material = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(0.5, 0.5, 0.5));
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
+        //CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, -10, 0), 10, diffuse_material));
+        auto ground = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 0, 0), 1, diffuse_material);
+        auto transformed_ground = make_shared<CPU_RAYTRACER::transform>(ground,glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
+        CPURT_objects.add(transformed_ground);
+
 
         // dielectric: transparent material, has reflection and refraction
         auto glass_material = make_shared<CPU_RAYTRACER::dielectric>(1.5);
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, -2.2), 1.0, glass_material));
+        //CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, -2.2), 1.0, glass_material));
+        auto glass = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 0, 0), 1.0, glass_material);
+        auto transformed_glass = make_shared<CPU_RAYTRACER::transform>(glass, glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        CPURT_objects.add(transformed_glass);
 
         // diffuse material with texture
         shared_ptr<CPU_RAYTRACER::texture> earth_texture = make_shared<CPU_RAYTRACER::image_texture>("../../resource/earthmap.jpg");
         shared_ptr<CPU_RAYTRACER::material> earth_surface_material = make_shared<CPU_RAYTRACER::lambertian>(earth_texture);
-        shared_ptr<CPU_RAYTRACER::sphere> earth = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 2.2), 1.0, earth_surface_material);
-        CPURT_objects.add(earth);
-        //glm::quat q = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
-        //earth->rotate(q);
+        //shared_ptr<CPU_RAYTRACER::sphere> earth = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 2.2), 1.0, earth_surface_material);
+        auto earth = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 0, 0), 1.0, earth_surface_material);
+        glm::vec3 rotationAxis = glm::vec3(0, 1, 0); // 旋转轴（绕y轴）
+        glm::mat4 identity = glm::mat4(1.0);
+        auto transformed_earth = make_shared<CPU_RAYTRACER::transform>(earth,glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::rotate(identity, glm::radians(90.0f), rotationAxis) *glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        CPURT_objects.add(transformed_earth);
+        
         
         // metal: reflective material
         auto metal_material = make_shared<CPU_RAYTRACER::metal>(glm::vec3(0.7, 0.6, 0.5), 0.2);
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 0), 1.0, metal_material));
+        //CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 0), 1.0, metal_material));
+        auto metal = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 0, 0), 1.0, metal_material);
+        auto transformed_metal = make_shared<CPU_RAYTRACER::transform>(metal, glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        CPURT_objects.add(transformed_metal);
 
         // diffuse light material
         auto light_material = make_shared<CPU_RAYTRACER::diffuse_light>(glm::vec3(2, 2, 2));
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
+        //CPURT_objects.add(make_shared<CPU_RAYTRACER::sphere>(glm::vec3(1.5, 0.45, 0), 0.5, light_material));
+        auto light = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 0, 0), 1.0, light_material);
+        auto transformed_light = make_shared<CPU_RAYTRACER::transform>(light, glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
+        CPURT_objects.add(transformed_light);
 
         // triangle
         glm::vec3 v0(-1, 2, -0.2);
         glm::vec3 v1(1, 2, 0.2);
         glm::vec3 v2(0, 4, 0);
-        CPURT_objects.add(make_shared<CPU_RAYTRACER::triangle>(v0, v1, v2, diffuse_material));
-        //CPURT_objects.add(make_shared<triangle>(v0, v1, v2, earth_surface_material));
+        // CPURT_objects.add(make_shared<CPU_RAYTRACER::triangle>(v0, v1, v2, diffuse_material));
+        auto triangle = make_shared<CPU_RAYTRACER::triangle>(v0, v1, v2, diffuse_material);
+        auto transformed_triangle = make_shared<CPU_RAYTRACER::transform>(triangle, glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
+        CPURT_objects.add(transformed_triangle);
+
+
+
+
+        // teapot
+        auto diffuse_material2 = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(0.8, 0.6, 0.8));
+        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> teapot_triangles = CPU_RAYTRACER::load_mesh("../../resource/teapot.obj", diffuse_material2);
+        auto cpu_teapot = make_shared<CPU_RAYTRACER::mesh>(teapot_triangles);
+        auto transformed_teapot = make_shared<CPU_RAYTRACER::transform>(cpu_teapot, glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+        CPURT_objects.add(transformed_teapot);
+
+
+        // diffuse material with texture
+        shared_ptr<CPU_RAYTRACER::texture> night_texture = make_shared<CPU_RAYTRACER::image_texture>("../../resource/night.png");
+        shared_ptr<CPU_RAYTRACER::material> cube_surface_material = make_shared<CPU_RAYTRACER::lambertian>(night_texture);
+        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> cube_meshes = CPU_RAYTRACER::load_mesh("../../resource/cube.obj", cube_surface_material);
+        auto cube = make_shared<CPU_RAYTRACER::mesh>(cube_meshes);
+        auto transformed_cube = make_shared<CPU_RAYTRACER::transform>(cube,glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.5, 2.0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
+        CPURT_objects.add(transformed_cube);
 
 
 
@@ -115,8 +152,7 @@ class Scene {
         Sphere* sphereObject3 = new Sphere();
         RayTraceObject * rayTraceObject3 = new RayTraceObject(sphereObject3);
         rayTraceObject3->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), earthTexture);
-        glm::vec3 rotationAxis = glm::vec3(0, 1, 0); // 旋转轴（绕y轴）
-        glm::mat4 identity = glm::mat4(1.0);
+        
         rayTraceObject3->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 2.2)) * glm::rotate(identity, glm::radians(90.0f), rotationAxis) *glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject3->update();
         rayTraceObjects.push_back(rayTraceObject3);
@@ -150,6 +186,19 @@ class Scene {
         rayTraceObject6->update();
         rayTraceObjects.push_back(rayTraceObject6);
         objects.push_back(triangleObject);
+
+
+        // the cube
+        Texture * cubeTexture = new Texture();
+        cubeTexture->loadFromFile("../../resource/night.png");
+        cubeTexture->createGPUTexture();
+        Model* cubeObject = new Model("../../resource/cube.obj");
+        RayTraceObject * rayTraceObject8 = new RayTraceObject(cubeObject);
+        rayTraceObject8->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), cubeTexture);
+        rayTraceObject8->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.5, 2.0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
+        rayTraceObject8->update();
+        rayTraceObjects.push_back(rayTraceObject8);
+        objects.push_back(cubeObject);
 
 
         // then render the skybox
