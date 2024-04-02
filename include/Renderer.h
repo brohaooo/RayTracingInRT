@@ -356,6 +356,11 @@ class Renderer {
             object->updateRotation(glm::rotate(glm::mat4(1.0f), glm::radians(pbr_params.rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)));
 		}
 
+        // debug: draw aabb in raytrace_manager
+        if (GPURT_manager != nullptr) {
+            GPURT_manager->draw_TLAS_AABB();
+            //GPURT_manager->draw_BLAS_AABB();
+        }
 
         // render the scene using openGL rasterization pipeline
         for (auto object : objects) {
@@ -363,11 +368,7 @@ class Renderer {
 			object->draw();
 		}
 
-        // debug: draw aabb in raytrace_manager
-        if (GPURT_manager != nullptr) {
-            GPURT_manager->draw_TLAS_AABB();
-            //GPURT_manager->draw_BLAS_AABB();
-        }
+        
 
     
         // imgui---------------------------
@@ -473,7 +474,7 @@ class Renderer {
         enable_camera_movement = enable;
     }
 
-    bool has_RT_render_request_flag() {
+    bool has_RT_CPU_render_request_flag() {
 		return CPURT_render_request_flag;
 	}
     bool has_reset_request_flag() {

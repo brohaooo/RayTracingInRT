@@ -19,8 +19,13 @@ namespace GPU_RAYTRACER{
 
 
             // upload an green image for now, we will replace it with the result of the ray tracing
-            std::vector<glm::vec4> greenImage(width * height, glm::vec4(0, 100, 0, 1));
-            renderTexture->loadFromData(width, height, 4, reinterpret_cast<unsigned char*>(greenImage.data()));
+            // std::vector<glm::vec4> * greenImage = new std::vector<glm::vec4>(width * height, glm::vec4(0, 100, 0, 1));
+            // we use void * greenImage from heap to manually manage the memory:
+            void * greenImage = new glm::vec4[width * height];
+            for (int i = 0; i < width * height; i++){
+                ((glm::vec4*)greenImage)[i] = glm::vec4(0, 100, 0, 1);
+            }
+            renderTexture->loadFromData(width, height, 4,(greenImage));
             renderTexture->createGPUTexture();
 
             // generate the texture buffer for the primitives
@@ -62,9 +67,11 @@ namespace GPU_RAYTRACER{
 
         };
         void changeScreenSize(int _width, int _height){
+            std::cout<<"change screen size"<<std::endl;
             width = _width;
             height = _height;
             // resize the render texture
+            //std::cout<<"resize render texture"<<std::endl;
             renderTexture->resizeTexture(width, height, 4);
             glBindTexture(GL_TEXTURE_2D, renderTexture->getTextureRef());
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
@@ -489,7 +496,7 @@ namespace GPU_RAYTRACER{
             for (auto it = textureIDMap.begin(); it != textureIDMap.end(); it++){
                 Texture * texture = it->first;
                 int textureID = it->second;
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, textureID, 1024, 1024, 1, GL_RGB, GL_UNSIGNED_BYTE, texture->data);
+                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, textureID, 1024, 1024, 1, GL_RGB, GL_UNSIGNED_BYTE, texture->getData());
             }
 
 

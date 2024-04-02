@@ -111,7 +111,7 @@ int main() {
 
 
         // process state input by checking the renderer's flags
-        if (renderer.has_RT_render_request_flag()) {
+        if (renderer.has_RT_CPU_render_request_flag()) {
 			state_machine.request_start_CPURT();
 			renderer.reset_RT_render_request_flag();
 		}

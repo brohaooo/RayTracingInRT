@@ -156,7 +156,6 @@ public:
                     localEncodedPrimitives.push_back(primitive);
                 }
             }
-            std::cout<<"debug"<<std::endl;
             
         }
         else{
