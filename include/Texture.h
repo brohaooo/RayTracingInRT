@@ -82,7 +82,7 @@ public:
         data = nullptr;
     };
 
-    bool loadFromFile(const std::string& filename){
+    virtual bool loadFromFile(const std::string& filename){
         data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
         if (data == nullptr) {
             std::cerr << "Failed to load texture: " << filename << std::endl;
@@ -97,17 +97,29 @@ public:
         channels = c;
     }
 
-    void loadFromData(const int w, const int h, const int c, void* d){
+    virtual void loadFromData(const int w, const int h, const int c, void* d){
         setSize(w, h, c);
-        data = d;
+        // destroy the original data
+        if (data != nullptr) {
+            free(data);
+        }
+        // instead of pointing to the original data, we allocate a new memory and copy the data, to avoid the data being destroyed
+        // this is much safer ...
+        size_t dataSize = width * height * channels * ((dataFormat == GL_FLOAT) ? sizeof(float) : sizeof(unsigned char));
+        data = (unsigned char*)malloc(dataSize);
+        if (data == nullptr) {
+            std::cerr << "Failed to allocate memory for texture" << std::endl;
+            return;
+        }
+        memcpy(data, d, dataSize);
     }
 
-    void resizeTexture(const int newWidth, const int newHeight, const int newChannels)  {
+    virtual void resizeTexture(const int newWidth, const int newHeight, const int newChannels) {
         resizeData(newWidth, newHeight, newChannels);
         createGPUTexture();
     }
 
-    void resizeData(const int newWidth, const int newHeight, const int newChannels){
+    virtual void resizeData(const int newWidth, const int newHeight, const int newChannels){
         
         // the size of the original data also related to the data format:
         // e.g., GL_UNSIGNED_BYTE means each channel is 1 byte, GL_FLOAT means each channel is 4 bytes
@@ -141,9 +153,8 @@ public:
         free(data);
         // update the data
         data = resizedData;
-        width = newWidth;
-        height = newHeight;
-        channels = newChannels;
+        // update the size
+        setSize(newWidth, newHeight, newChannels);
     }
 
 
@@ -176,15 +187,21 @@ public:
         }
     };
 
+    // this use its own data to update the GPU texture
     void updateGPUTexture(){
+        // this function only tries to upload the data, it will not generate the texture in GPU
+        if (textureRef == 0) {
+            std::cerr << "Texture is not created, can not update the texture" << std::endl;
+            return;
+        }
         glBindTexture(GL_TEXTURE_2D, textureRef);
         if (channels == 3) {
             glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGB, dataFormat, data);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, dataFormat, data);
         }
         else if (channels == 4) {
             glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGBA, dataFormat, data);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, dataFormat, data);
         }
         else {
             std::cerr << "Unsupported number of channels: " << channels << std::endl;
@@ -192,7 +209,30 @@ public:
         
     };
 
-    virtual void destroy()  {
+    // this use the outer data to update the GPU texture
+    void updateGPUTexture(void * outerData){
+        // this function only tries to upload the data, it will not generate the texture in GPU
+        if (textureRef == 0) {
+            std::cerr << "Texture is not created, can not update the texture" << std::endl;
+            return;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, textureRef);
+        if (channels == 3) {
+            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGB, dataFormat, outerData);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, dataFormat, outerData);
+        }
+        else if (channels == 4) {
+            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGBA, dataFormat, outerData);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, dataFormat, outerData);
+        }
+        else {
+            std::cerr << "Unsupported number of channels: " << channels << std::endl;
+        }
+        
+    };
+
+    void destroy() override {
         // first call the base class destroy function
         GLTEXTURE::destroy();
         if (data != nullptr) {
@@ -205,8 +245,8 @@ public:
 
     ~Texture() { destroy(); }
 
-private:
-    void* data; // the pixel data in CPU
+protected:
+    void* data = nullptr; // the pixel data in CPU
     // not copyable
     Texture(const Texture&) = delete;
     Texture& operator=(const Texture&) = delete;
@@ -270,7 +310,47 @@ class SkyboxTexture {
     SkyboxTexture& operator=(const SkyboxTexture&) = delete;
 };
 
+// the render target texture, it does not have the pixel data in CPU
+// so it's CPU size functions are not available
+class TextureRenderTarget : public Texture {
+    public:
+    TextureRenderTarget(GLenum _dataFormat = GL_UNSIGNED_BYTE, GLenum _internalFormat = GL_RGB) : Texture(_dataFormat, _internalFormat) {
+        data = nullptr;
+    };
 
+    bool loadFromFile(const std::string& filename) override {
+        std::cerr << "TextureRenderTarget does not support loading from file" << std::endl;
+        return false;
+    };
+
+    void resizeData(const int newWidth, const int newHeight, const int newChannels) override {
+        std::cerr << "TextureRenderTarget does not support CPU data resizing" << std::endl;
+    };
+
+    // we don't need to load the texture data from CPU
+    // we only need to create the GPU texture with the specified size
+    void resizeTexture(const int newWidth, const int newHeight, const int newChannels) override {
+        setSize(newWidth, newHeight, newChannels);
+        createGPUTexture();
+    };
+
+    void loadFromData(const int w, const int h, const int c, void* d) override {
+        std::cerr << "TextureRenderTarget does not support loading from data" << std::endl;
+    };
+
+
+
+    void destroy() override {
+        // first call the base class destroy function
+        GLTEXTURE::destroy();
+    };
+
+
+    private:
+    // not copyable
+    TextureRenderTarget(const TextureRenderTarget&) = delete;
+    TextureRenderTarget& operator=(const TextureRenderTarget&) = delete;
+};
 
 
 

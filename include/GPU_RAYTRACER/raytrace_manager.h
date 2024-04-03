@@ -15,7 +15,7 @@ namespace GPU_RAYTRACER{
         RaytraceManager(int _width, int _height, const Camera * _camera, Rect * _screenCanvas) : camera(_camera), screenCanvas(_screenCanvas), width(_width), height(_height)
         {
             // generate the render texture
-            renderTexture = new Texture(GL_FLOAT, GL_RGBA32F);            
+            renderTexture = new TextureRenderTarget(GL_FLOAT, GL_RGBA32F);            
 
 
             // upload an green image for now, we will replace it with the result of the ray tracing
@@ -25,8 +25,10 @@ namespace GPU_RAYTRACER{
             for (int i = 0; i < width * height; i++){
                 ((glm::vec4*)greenImage)[i] = glm::vec4(0, 100, 0, 1);
             }
-            renderTexture->loadFromData(width, height, 4,(greenImage));
+            //renderTexture->loadFromData(width, height, 4,(greenImage));
+            renderTexture->setSize(width, height, 4);
             renderTexture->createGPUTexture();
+            renderTexture->updateGPUTexture(greenImage);
 
             // generate the texture buffer for the primitives
             glGenBuffers(1, &primitiveBuffer);
@@ -67,17 +69,16 @@ namespace GPU_RAYTRACER{
 
         };
         void changeScreenSize(int _width, int _height){
-            std::cout<<"change screen size"<<std::endl;
             width = _width;
             height = _height;
             // resize the render texture
             //std::cout<<"resize render texture"<<std::endl;
             renderTexture->resizeTexture(width, height, 4);
-            glBindTexture(GL_TEXTURE_2D, renderTexture->getTextureRef());
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glBindTexture(GL_TEXTURE_2D, 0);
+            //glBindTexture(GL_TEXTURE_2D, renderTexture->getTextureRef());
+            //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            //glBindTexture(GL_TEXTURE_2D, 0);
         };
 
         ~RaytraceManager(){
@@ -424,7 +425,7 @@ namespace GPU_RAYTRACER{
             frameCounter = 0;
         };
     private:
-        Texture * renderTexture; // render texture object
+        TextureRenderTarget * renderTexture; // render texture object
         GLuint TLASBuffer; // top level acceleration structure buffer
         GLuint TLASTexture; // texture buffer for the TLAS
         GLuint BLASBuffer; // bottom level acceleration structure buffer
