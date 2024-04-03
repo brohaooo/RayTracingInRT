@@ -22,7 +22,7 @@ int main() {
     
     renderer.GPURT_manager->loadScene(Scene.rayTraceObjects, Scene.skyboxTexture); // load the scene to the GPU ray tracer
     renderer.GPURT_manager->compute();
-    renderer.screenCanvas->setShader(new Shader("../../shaders/texture_display.vert", "../../shaders/texture_display.frag"));
+    renderer.screenCanvas->setShader(new Shader("shaders/texture_display.vert", "shaders/texture_display.frag"));
     renderer.GPURT_manager->setScreenCanvas(renderer.screenCanvas);
 
 

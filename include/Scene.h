@@ -30,7 +30,7 @@ class Scene {
     std::vector<RayTraceObject*> rayTraceObjects; // temporary, for testing ray tracing objects
     // TODO: add lights
     //std::vector<Light*> lights; 
-	Scene() : CPURT_skybox("../../resource/skybox") {
+	Scene() : CPURT_skybox("resource/skybox") {
         // ------------------ ray tracing objects ------------------
 
         // different materials:
@@ -50,7 +50,7 @@ class Scene {
         CPURT_objects.add(transformed_glass);
 
         // diffuse material with texture
-        shared_ptr<CPU_RAYTRACER::texture> earth_texture = make_shared<CPU_RAYTRACER::image_texture>("../../resource/earthmap.jpg");
+        shared_ptr<CPU_RAYTRACER::texture> earth_texture = make_shared<CPU_RAYTRACER::image_texture>("resource/earthmap.jpg");
         shared_ptr<CPU_RAYTRACER::material> earth_surface_material = make_shared<CPU_RAYTRACER::lambertian>(earth_texture);
         //shared_ptr<CPU_RAYTRACER::sphere> earth = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 1, 2.2), 1.0, earth_surface_material);
         auto earth = make_shared<CPU_RAYTRACER::sphere>(glm::vec3(0, 0, 0), 1.0, earth_surface_material);
@@ -88,16 +88,16 @@ class Scene {
 
         // teapot
         auto diffuse_material2 = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(0.8, 0.6, 0.8));
-        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> teapot_triangles = CPU_RAYTRACER::load_mesh("../../resource/teapot.obj", diffuse_material2);
+        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> teapot_triangles = CPU_RAYTRACER::load_mesh("resource/teapot.obj", diffuse_material2);
         auto cpu_teapot = make_shared<CPU_RAYTRACER::mesh>(teapot_triangles);
         auto transformed_teapot = make_shared<CPU_RAYTRACER::transform>(cpu_teapot, glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
         CPURT_objects.add(transformed_teapot);
 
 
         // diffuse material with texture
-        shared_ptr<CPU_RAYTRACER::texture> night_texture = make_shared<CPU_RAYTRACER::image_texture>("../../resource/night.png");
+        shared_ptr<CPU_RAYTRACER::texture> night_texture = make_shared<CPU_RAYTRACER::image_texture>("resource/night.png");
         shared_ptr<CPU_RAYTRACER::material> cube_surface_material = make_shared<CPU_RAYTRACER::lambertian>(night_texture);
-        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> cube_meshes = CPU_RAYTRACER::load_mesh("../../resource/cube.obj", cube_surface_material);
+        std::vector<shared_ptr<CPU_RAYTRACER::hittable>> cube_meshes = CPU_RAYTRACER::load_mesh("resource/cube.obj", cube_surface_material);
         auto cube = make_shared<CPU_RAYTRACER::mesh>(cube_meshes);
         auto transformed_cube = make_shared<CPU_RAYTRACER::transform>(cube,glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.5, 2.0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
         CPURT_objects.add(transformed_cube);
@@ -116,14 +116,14 @@ class Scene {
 
         // skybox
         skyboxTexture = new SkyboxTexture();
-        skyboxTexture->loadFromFolder("../../resource/skybox");
+        skyboxTexture->loadFromFolder("resource/skybox");
         skyboxTexture->createSkyboxTexture();
         Skybox * _skybox = new Skybox();
-        _skybox->setShader(new Shader("../../shaders/skybox_shader.vert", "../../shaders/skybox_shader.frag"));
+        _skybox->setShader(new Shader("shaders/skybox_shader.vert", "shaders/skybox_shader.frag"));
 		    _skybox->setTexture(skyboxTexture);
 
 
-        Model* teapot = new Model("../../resource/teapot.obj");
+        Model* teapot = new Model("resource/teapot.obj");
         RayTraceObject * rayTraceObject7 = new RayTraceObject(teapot);
         rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, glm::vec4(0.8, 0.6, 0.8, 1.0));
         rayTraceObject7->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
@@ -147,7 +147,7 @@ class Scene {
         
         // the earth sphere
         Texture * earthTexture = new Texture();
-        earthTexture->loadFromFile("../../resource/earthmap.jpg");
+        earthTexture->loadFromFile("resource/earthmap.jpg");
         earthTexture->createGPUTexture();
         Sphere* sphereObject3 = new Sphere();
         RayTraceObject * rayTraceObject3 = new RayTraceObject(sphereObject3);
@@ -190,9 +190,9 @@ class Scene {
 
         // the cube
         Texture * cubeTexture = new Texture();
-        cubeTexture->loadFromFile("../../resource/night.png");
+        cubeTexture->loadFromFile("resource/night.png");
         cubeTexture->createGPUTexture();
-        Model* cubeObject = new Model("../../resource/cube.obj");
+        Model* cubeObject = new Model("resource/cube.obj");
         RayTraceObject * rayTraceObject8 = new RayTraceObject(cubeObject);
         rayTraceObject8->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), cubeTexture);
         rayTraceObject8->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.5, 2.0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));

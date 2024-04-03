@@ -51,11 +51,9 @@ elseif(UNIX)
 endif()
 
 # Copy resources and shaders to target directory
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bin/Debug)
-else() # Release
-    set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bin/Release)
-endif()
+# set the current build output directory
+set(OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bin/$<CONFIG>)
+
 
 add_custom_command(
     TARGET ${PROJECT_NAME}
@@ -72,7 +70,16 @@ add_custom_command(
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders
-    ${OUTPUT_DIR}/shader
+    ${OUTPUT_DIR}/shaders
     COMMAND ${CMAKE_COMMAND} -E echo
-    "copying ${CMAKE_CURRENT_SOURCE_DIR}/shader to ${OUTPUT_DIR}/shaders"
+    "copying ${CMAKE_CURRENT_SOURCE_DIR}/shaders to ${OUTPUT_DIR}/shaders"
     COMMENT "Copying shaders to build directory")
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/outputs
+    ${OUTPUT_DIR}/outputs
+    COMMAND ${CMAKE_COMMAND} -E echo
+    "copying ${CMAKE_CURRENT_SOURCE_DIR}/outputs to ${OUTPUT_DIR}/outputs"
+    COMMENT "Copying output folder to build directory")

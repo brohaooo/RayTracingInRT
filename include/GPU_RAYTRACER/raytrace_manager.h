@@ -390,9 +390,9 @@ namespace GPU_RAYTRACER{
         // hard coded shaders for now, since we are not going to change them
         void setShaders(){
             // compute shader
-            raytraceComputeShader = new ComputeShader("../../shaders/raytrace_compute_shader.comp");
+            raytraceComputeShader = new ComputeShader("shaders/raytrace_compute_shader.comp");
             // debug AABB shader
-            debugAABBShader = new Shader("../../shaders/debug_AABB.vert", "../../shaders/debug_AABB.frag");
+            debugAABBShader = new Shader("shaders/debug_AABB.vert", "shaders/debug_AABB.frag");
             // set up the VAO and VBO for drawing AABBs
             glGenVertexArrays(1, &AABB_VAO);
             glGenBuffers(1, &AABB_VBO);

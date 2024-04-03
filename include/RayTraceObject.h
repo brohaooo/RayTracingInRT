@@ -46,10 +46,10 @@ public:
         material.baseColor = glm::vec3(baseColor);
         obj->setColor(baseColor);
         // we specify the corresponding shader in default renderer to make it easy to manage the mapping between raytracing material type and rasterization shading shader 
-        const char * vertexShaderPath = "../../shaders/texture_shader.vert";
-        const char * fragmentShaderPath = "../../shaders/shader.frag";
+        const char * vertexShaderPath = "shaders/texture_shader.vert";
+        const char * fragmentShaderPath = "shaders/shader.frag";
         if (_texture != nullptr) {
-            fragmentShaderPath = "../../shaders/texture_shader.frag";
+            fragmentShaderPath = "shaders/texture_shader.frag";
             obj->setTexture(_texture);
             this->texture = _texture;
             // resize the texture to 1024x1024x3

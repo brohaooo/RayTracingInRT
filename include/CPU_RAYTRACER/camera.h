@@ -66,7 +66,7 @@ namespace CPU_RAYTRACER {
             }
             std::clog << "\rDone. Now writing to file...                 \n";
             FILE* file_pointer;
-            std::string file_name = "../../outputs/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".png";
+            std::string file_name = "outputs/" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count()) + ".png";
             file_pointer = fopen(file_name.c_str(), "wb");
 
             if (file_pointer == NULL)
@@ -103,7 +103,7 @@ namespace CPU_RAYTRACER {
             std::clog << "\rDone.                 \n";
         }
 
-        void render_to_png(const hittable& world, const char* save_path = "../../outputs/image.png") {
+        void render_to_png(const hittable& world, const char* save_path = "outputs/image.png") {
             initialize();
 
             unsigned char* p = rendered_image;
