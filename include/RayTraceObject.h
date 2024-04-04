@@ -2,7 +2,10 @@
 #define RAYTRACEOBJECT_H
 
 #include "Object.h"
-#include "GPU_RAYTRACER/data_structures.h" // not a good practice, but for now, it is fine, it includes some data structures used in GPU raytracer
+#include "SceneObject.h"
+#include <GPU_RAYTRACER/GPU_RAYTRACER.h>
+#include <CPU_RAYTRACER/CPU_RAYTRACER.h>
+#include <memory>
 
 enum MaterialType {
     LAMBERTIAN = 0,
@@ -11,6 +14,20 @@ enum MaterialType {
     EMISSIVE = 3
 };
 
+class ObjectRenderComponent : public RenderComponent {
+public:
+    ObjectRenderComponent(MVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
+        this->obj = _obj;
+        renderPriority = _renderPriority;
+    }
+    void Render() override {
+        obj->draw();
+    }
+private:
+    MVPObject * obj;
+};
+
+
 
 
 
@@ -18,21 +35,31 @@ enum MaterialType {
 // the main feature is to manage the data transfer between the CPU and the GPU: primitive, BVH, material, texture, model matrix, etc.
 // it also in charge of detecting whether the scene has changed, so that GPU raytracer can update the scene data via updating TLAS
 // instead of inheriting from Object class, it contains an Object pointer, and it can be constructed from an Object pointer
-class RayTraceObject{
+class RayTraceObject : public RenderableSceneObject {
 public:
-    RayTraceObject(MVPObject * obj) {
-        this->obj = obj;
+    RayTraceObject(MVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
+        this->obj = _obj;
         encodePrimitive();
         constructLocalBLAS();
+        this->renderComponent = std::make_shared<ObjectRenderComponent>(obj,_renderPriority);
+        
     }
     ~RayTraceObject() {
     }
+
     void setModelMatrix(glm::mat4 modelMatrix) {
         obj->setModel(modelMatrix);
         this->modelMatrix = modelMatrix;
-        // then inform the ray tracer to update the TLAS
-        // ... not implemented yet
+        if (CPU_object_transform != nullptr) {
+            CPU_object_transform->update_model_matrix(modelMatrix);
+        }
     }
+
+    glm::mat4 getModelMatrix() {
+        return modelMatrix;
+    }
+
+
     void setMaterial(int type, float fuzzOrIOR, glm::vec4 baseColor, Texture * _texture = nullptr) {
         material.type = type; // 0: lambertian, 1: metal, 2: dielectric
         // ensure if fuzziness, it is in the range [0, 1]
@@ -71,19 +98,24 @@ public:
         // then inform the ray tracer to update the TLAS
         // ... not implemented yet
     }
-    //void setTexture() {
-    //}
-    //void updatePrimitive() {
-    //}
-    //void updateBLAS() {
-    //}
+   
     void update(){
+        // GPU ray tracing components
         encodePrimitive();
         constructLocalBLAS();
+        // CPU ray tracing components
+        constructCPU_object();
     }
     
-    MVPObject * obj;
-    glm::mat4 modelMatrix; // though the model matrix is stored in the object, it is also stored here for easy access
+    // default rendering components
+    MVPObject * obj = nullptr; // the default object, it is used for forward rendering in the default renderer
+    
+    
+
+    // though the model matrix is stored in the object, it is also stored here for easy access
+    glm::mat4 modelMatrix = glm::mat4(1.0f); // the default model matrix is identity matrix
+    // ------------------------------
+    // GPU ray tracing components
     glm::vec3 AA, BB; // the AABB of the object
     std::vector<GPU_RAYTRACER::Primitive> localEncodedPrimitives;
     std::vector<GPU_RAYTRACER::BLASNode> localBLAS; // the root of the BLAS tree must be the first element of the vector
@@ -91,9 +123,84 @@ public:
     Texture * texture = nullptr;
     bool hasTexture() { return texture != nullptr; }
     Texture * getTexture() { return texture; }
+    // ------------------------------
+    // CPU ray tracing components
+    shared_ptr<CPU_RAYTRACER::hittable> CPU_object = nullptr; // the hittable object for CPU ray tracing
+    // if it has a transformation, the transformation node ref will be stored here
+    // so that we can update the transformation matrix of the object by updating the transformation node
+    shared_ptr<CPU_RAYTRACER::transform> CPU_object_transform = nullptr;
+    // ------------------------------
+    
 
 
     private:
+
+    void constructCPU_object(){
+        CPU_object = nullptr;
+        shared_ptr<CPU_RAYTRACER::material> CPU_material = nullptr;
+        // first check whether the material is a texture material
+        shared_ptr<CPU_RAYTRACER::texture> CPU_texture = nullptr;
+        if (this->texture != nullptr) {
+            CPU_texture = make_shared<CPU_RAYTRACER::image_texture>(texture->getData(), texture->width, texture->height, texture->channels);
+        }
+        // then construct the material
+        if (material.type == LAMBERTIAN) {
+            CPU_material = make_shared<CPU_RAYTRACER::lambertian>(CPU_texture,material.baseColor);
+        }
+        else if (material.type == METAL) {
+            CPU_material = make_shared<CPU_RAYTRACER::metal>(CPU_texture,material.baseColor, material.fuzzOrIOR);
+        }
+        else if (material.type == DIELECTRIC) {
+            CPU_material = make_shared<CPU_RAYTRACER::dielectric>(material.fuzzOrIOR);
+        }
+        else if (material.type == EMISSIVE) {
+            CPU_material = make_shared<CPU_RAYTRACER::diffuse_light>(CPU_texture,material.baseColor);
+        }
+        else{
+            // unsupported material type, use lambertian with red color
+            std::cout<<"unsupported material type"<<std::endl;
+            CPU_material = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(1,0,0));
+        }
+        // then construct the CPU object
+        if (dynamic_cast<Triangle*>(obj)){
+            Triangle * triangle = dynamic_cast<Triangle*>(obj);
+            // construct the triangle object without transformation
+            shared_ptr<CPU_RAYTRACER::hittable> primitiveObject = make_shared<CPU_RAYTRACER::triangle>(triangle->v0, triangle->v1, triangle->v2, CPU_material, triangle->t0, triangle->t1, triangle->t2, triangle->n0, triangle->n1, triangle->n2);\
+            // then apply the transformation
+            CPU_object = make_shared<CPU_RAYTRACER::transform>(primitiveObject, modelMatrix);
+            // if the object has a transformation, store the transformation node ref
+            // currently, only translation is supported
+            CPU_object_transform = std::dynamic_pointer_cast<CPU_RAYTRACER::transform>(CPU_object);
+        }
+        else if (dynamic_cast<Sphere*>(obj)){
+            Sphere * sphere = dynamic_cast<Sphere*>(obj);
+            shared_ptr<CPU_RAYTRACER::hittable> primitiveObject = make_shared<CPU_RAYTRACER::sphere>(sphere->center, sphere->radius, CPU_material);
+            CPU_object = make_shared<CPU_RAYTRACER::transform>(primitiveObject, modelMatrix);
+            CPU_object_transform = std::dynamic_pointer_cast<CPU_RAYTRACER::transform>(CPU_object);
+
+        }
+        else if (dynamic_cast<Model*>(obj)){
+            Model * model = dynamic_cast<Model*>(obj);
+            std::vector<shared_ptr<CPU_RAYTRACER::hittable>> hittable_triangles;
+            for (Mesh* mesh : model->meshes){
+                load_triangles(hittable_triangles, mesh->positions, mesh->uvs, mesh->normals, mesh->indices, CPU_material);
+            }
+            auto hittable_mesh = make_shared<CPU_RAYTRACER::mesh>(hittable_triangles);
+            CPU_object = make_shared<CPU_RAYTRACER::transform>(hittable_mesh, modelMatrix);
+            CPU_object_transform = std::dynamic_pointer_cast<CPU_RAYTRACER::transform>(CPU_object);
+            
+        }
+        else{
+            // unsupported object type
+            std::cout<<"unsupported object type"<<std::endl;
+        }
+
+    }
+    void updateCPU_object(){
+        // not implemented yet, should be called when the object is updated (moved, rotated, scaled, deleted, etc.)
+    }
+
+
     void encodePrimitive() {
         // construct local BLAS from the object
         // this function is called when the object is constructed, or when the object's primitives are changed
@@ -111,15 +218,14 @@ public:
             primitive.n1 = triangle->n0;
             primitive.n2 = triangle->n1;
             primitive.n3 = triangle->n2;
-            primitive.t1 = glm::vec3(0,1,0);    // not specified yet
-            primitive.t2 = glm::vec3(1,1,0);
-            primitive.t3 = glm::vec3(0.5,0.5,0);
+            primitive.t1 = triangle->t0;
+            primitive.t2 = triangle->t1;
+            primitive.t3 = triangle->t2;
             localEncodedPrimitives.push_back(primitive);
             
         }
         else if (dynamic_cast<Sphere*>(obj)){
             Sphere * sphere = dynamic_cast<Sphere*>(obj);
-            glm::quat rotation = glm::quat_cast(modelMatrix);
             // encode the sphere to the primitive struct
             GPU_RAYTRACER::Primitive primitive;
             primitive.primitiveInfo = glm::vec3(1, 0, 0); // x: primitive type(0: triangle, 1: sphere), yz: reserved
@@ -433,7 +539,39 @@ public:
 
 };
 
+class RayTraceSkybox : public RenderableSceneObject {
+public:
+CPU_RAYTRACER::skybox * CPU_skybox;
+Skybox * skybox;
 
+RayTraceSkybox(Skybox * _skybox) {
+    this->skybox = _skybox;
+    this->renderComponent = std::make_shared<ObjectRenderComponent>(_skybox, SKYBOX);
+    // copy the skybox data to CPU_skybox
+    std::vector<void*> data_list; 
+    std::vector<int> width_list; 
+    std::vector<int> height_list; 
+    std::vector<int> nrChannels_list;
+    SkyboxTexture * _skyboxTexture = _skybox->skyboxTexture;
+    for (int i = 0; i < 6; i++) {
+        Texture * texture = &_skyboxTexture->faces[i];
+        if (texture->dataFormat != GL_UNSIGNED_BYTE) {
+            std::cout<<"skybox texture data format is not GL_UNSIGNED_BYTE"<<std::endl;
+            return;
+        }
+
+        data_list.push_back(texture->getData());
+        width_list.push_back(texture->width);
+        height_list.push_back(texture->height);
+        nrChannels_list.push_back(texture->channels);
+    }
+    CPU_skybox = new CPU_RAYTRACER::skybox(data_list, width_list, height_list, nrChannels_list);
+}
+
+    
+
+    
+};
 
 
 

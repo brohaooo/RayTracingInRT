@@ -82,6 +82,7 @@ public:
         data = nullptr;
     };
 
+    // caution, it should only load unsigned char format image (e.g., PNG, JPG, etc.)
     virtual bool loadFromFile(const std::string& filename){
         data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
         if (data == nullptr) {

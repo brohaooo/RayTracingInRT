@@ -54,29 +54,7 @@ namespace GPU_RAYTRACER{
 
 
     // some helper functions
-    //AABB transform_bounding_box(const AABB& box, const glm::mat4& m) {
-	//	std::vector<glm::vec3> vertices = {
-	//		glm::vec3(box.min().x, box.min().y, box.min().z),
-	//		glm::vec3(box.max().x, box.min().y, box.min().z),
-	//		glm::vec3(box.min().x, box.max().y, box.min().z),
-	//		glm::vec3(box.max().x, box.max().y, box.min().z),
-	//		glm::vec3(box.min().x, box.min().y, box.max().z),
-	//		glm::vec3(box.max().x, box.min().y, box.max().z),
-	//		glm::vec3(box.min().x, box.max().y, box.max().z),
-	//		glm::vec3(box.max().x, box.max().y, box.max().z)
-	//	};
-//
-	//	glm::vec3 new_min = glm::vec3(m * glm::vec4(vertices[0], 1.0f));
-	//	glm::vec3 new_max = new_min;
-//
-	//	for (const auto& vertex : vertices) {
-	//		glm::vec3 transformed_vertex = glm::vec3(m * glm::vec4(vertex, 1.0f));
-	//		new_min = glm::min(new_min, transformed_vertex);
-	//		new_max = glm::max(new_max, transformed_vertex);
-	//	}
-//
-	//	return AABB(new_min, new_max);
-	//}
+
 
     std::pair<glm::vec3,glm::vec3> transformAABB2WorldSpace(const glm::vec3& AA,const glm::vec3& BB, const glm::mat4& modelMatrix) {
         std::vector<glm::vec3> vertices = {

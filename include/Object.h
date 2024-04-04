@@ -702,11 +702,6 @@ class Model : public MVPObject {
 			meshes[i]->prepareDraw(context);
 	}
 
-	void updateRotation(glm::mat4 _rotation) {
-		for (unsigned int i = 0; i < meshes.size(); i++)
-			meshes[i]->rotation = _rotation;
-	}
-
 
 };
 

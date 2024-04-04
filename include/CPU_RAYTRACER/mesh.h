@@ -36,7 +36,9 @@ namespace CPU_RAYTRACER {
     	shared_ptr<BVH_node> bvh_node; // its contained triangles are not transformed (still in object space)
     };
     
+	
 	// load a mesh from a file using assimp
+	// legacy function, not recommended to use
 	// it loads an obj, merge all meshes triangles into a single std::vector<shared_ptr<hittable>>
 	// then you can build a mesh object from the triangles using the mesh constructor
 	// we will load the UV and normals of the vertices
@@ -86,6 +88,30 @@ namespace CPU_RAYTRACER {
 
 		return triangles;
 	}
+
+	// or load these triangles from a list of vertices and indices into a std::vector<shared_ptr<hittable>>
+	// this should be the correct way to load a mesh, since CPU_RAYTRACER should rely on the user to provide the vertices and indices
+	void load_triangles(std::vector<shared_ptr<hittable>> & triangles, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec2>& uvs, const std::vector<glm::vec3>& normals, const std::vector<unsigned int>& indices, shared_ptr<material> mat) {
+		for (unsigned int i = 0; i < indices.size(); i += 3)
+		{
+			triangles.push_back(std::make_shared<triangle>(
+				vertices[indices[i]],
+				vertices[indices[i + 1]],
+				vertices[indices[i + 2]],
+				mat,
+				uvs[indices[i]],
+				uvs[indices[i + 1]],
+				uvs[indices[i + 2]],
+				normals[indices[i]],
+				normals[indices[i + 1]],
+				normals[indices[i + 2]]
+			));
+		}
+	}
+	
+
+
+
 }
 
 

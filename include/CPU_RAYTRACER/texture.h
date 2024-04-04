@@ -26,6 +26,20 @@ namespace CPU_RAYTRACER {
 				image_width = image_height = 0;
 			}		
 		}
+		// or it can be created from a void pointer and copy the data with width, height, and components specified
+		image_texture(const void* data, int width, int height, int channels)
+		{
+			if (data == nullptr)
+			{
+				std::cout << "ERROR: Could not load texture image file from data.\n" << std::endl;
+				image_width = image_height = 0;
+			}
+			image_width = width;
+			image_height = height;
+			components_per_pixel = channels;
+			img_data = new unsigned char[width * height * channels];
+			memcpy(img_data, data, width * height * channels);
+		}
 
 		virtual glm::vec3 value(float u, float v, const glm::vec3& p) const override
 		{

@@ -44,6 +44,35 @@ namespace CPU_RAYTRACER {
 
 		};
 
+		// or, just load the skybox data from a pointer
+		skybox(std::vector<void*> data_list, std::vector<int> width_list, std::vector<int> height_list, std::vector<int> nrChannels_list) {
+			if (data_list.size() != 6) {
+				std::cout << "skybox data list size is not 6" << std::endl;
+				return;
+			}
+			width = width_list[0];
+			height = height_list[0];
+			nrChannels = nrChannels_list[0];
+			for (unsigned int i = 0; i < 6; i++)
+			{
+				// we assume all the data have the same size
+				// check if it is true
+				if (width_list[i] != width || height_list[i] != height || nrChannels_list[i] != nrChannels) {
+					std::cout << "CPU raytracing skybox data size mismatch" << std::endl;
+					return;
+				}
+
+				data[i] = nullptr;
+				// copy the data
+				data[i] = static_cast<unsigned char*>(std::malloc(width_list[i] * height_list[i] * nrChannels_list[i] * sizeof(unsigned char)));
+				if (!data[i]) {
+    std::cerr << "Memory allocation failed for skybox texture" << std::endl;
+    // Handle the allocation failure (e.g., clean up and exit)
+}
+				memcpy(data[i], data_list[i], width_list[i] * height_list[i] * nrChannels_list[i]* sizeof(unsigned char));
+			}
+		};
+
 		skybox() {
 			for (unsigned int i = 0; i < 6; i++)
 			{

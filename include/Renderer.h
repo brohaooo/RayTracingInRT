@@ -295,8 +295,6 @@ class Renderer {
     //void render
 
 	void render(Scene & _scene, bool render_screenCanvas = false, bool render_ImGUI = true) {
-        std::vector<Object*> & objects = _scene.objects;
-        std::vector<Model*>& rotate_models = _scene.rotate_models;
 		// render loop
 		// -----------
         
@@ -326,16 +324,6 @@ class Renderer {
             glClear(GL_DEPTH_BUFFER_BIT); 
             screenCanvas->prepareDraw(context);
             screenCanvas->draw();
-
-            //if (GPURT_manager != nullptr) {
-            //    // disable depth test, because we want to draw the screenCanvas on top of the openGL objects
-            //    glDisable(GL_DEPTH_TEST);
-            //    GPURT_manager->draw_TLAS_AABB();
-            //    GPURT_manager->draw_BLAS_AABB();
-            //    // enable depth test again
-            //    glEnable(GL_DEPTH_TEST);
-            //}
-
             if (render_ImGUI) {
                 render_IMGUI();
             }
@@ -351,10 +339,10 @@ class Renderer {
 
             
 
-        for (auto object : rotate_models) {
-            //glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
-            object->updateRotation(glm::rotate(glm::mat4(1.0f), glm::radians(pbr_params.rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)));
-		}
+        // for (auto object : rotate_models) {
+        //     //object->updateRotation(glm::rotate(glm::mat4(1.0f), glm::radians(pbr_params.rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)));
+        //     object->setModel(glm::rotate(object->model, glm::radians(3.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
+		// }
 
         // debug: draw aabb in raytrace_manager
         if (GPURT_manager != nullptr) {
@@ -362,14 +350,14 @@ class Renderer {
             //GPURT_manager->draw_BLAS_AABB();
         }
 
+        std::vector<std::shared_ptr<RenderComponent>> & renderQueue = _scene.renderQueue;
         // render the scene using openGL rasterization pipeline
-        for (auto object : objects) {
-            object->prepareDraw(context);
-			object->draw();
-		}
-
+        for (auto renderComponent : renderQueue) {
+            if (renderComponent->active) {
+                renderComponent->Render();
+            }
+        }
         
-
     
         // imgui---------------------------
         if (render_ImGUI){
@@ -446,7 +434,7 @@ class Renderer {
 		// --------------------------------
 	}   
 
-    void CPURT_render_thread(const Scene& Scene) {
+    void CPURT_render_thread(const RayTraceScene& Scene) {
 		CPURT_camera->non_blocking_render(Scene.CPURT_objects, CPURT_rendering_finished_flag, &Scene.CPURT_skybox);
 
         unsigned char* rendered_output = CPURT_camera->rendered_image;
@@ -511,6 +499,9 @@ class Renderer {
         context.flipYCoord = true; // because our CPU ray tracing image is flipped (origin at top-left corner, while openGL is at bottom-left corner)
     }
 
+    float getFrameDeltaTime() {
+        return deltaTime;
+    }
 
     private:
     //----------------------------------------------------------------------------------

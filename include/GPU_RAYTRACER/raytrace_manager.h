@@ -115,8 +115,7 @@ namespace GPU_RAYTRACER{
             constructBVH();
             // upload the scene data to the GPU
             uploadSceneData();
-            // upload the scene textures
-            uploadSceneTextureArray();
+            
 
         };
         // with its gpu ray tracing shader, render the scene (two passes: first pass for ray tracing, second pass for displaying the result)
@@ -236,11 +235,16 @@ namespace GPU_RAYTRACER{
 
 
         void constructTLAS(){
-            
             buildTLASBVH(0, rayTraceObjects.size() - 1);
-            
-
         };
+
+        void updateTLAS(){
+            TLASNodes.clear();
+            constructTLAS();
+            uploadTLASData();
+        }
+
+
         void constructBLAS(){
             // just use the local BLAS nodes of each object to the BLASNodes list
             // but we need to calculate the shifted index for each BLAS nodes
@@ -323,26 +327,14 @@ namespace GPU_RAYTRACER{
         // upload scene data to gpu: bvh nodes, objects(geometries(triangles/spheres), materials)
         void uploadSceneData(){
             // upload the primitives
-            glBindBuffer(GL_TEXTURE_BUFFER, primitiveBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, encodedPrimitives.size() * PrimitiveSize, encodedPrimitives.data(), GL_STATIC_DRAW);
-            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, primitiveBuffer);
-            glBindTexture(GL_TEXTURE_BUFFER, 0);
+            uploadPrimitiveData();
             // upload the bvh nodes
             // TLAS: top level acceleration structure, can be updated frequently as scene changes or meshes move
-            glBindBuffer(GL_TEXTURE_BUFFER, TLASBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, TLASNodes.size() * TLASNodeSize, TLASNodes.data(), GL_STATIC_DRAW);
-            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, TLASBuffer);
-            glBindTexture(GL_TEXTURE_BUFFER, 0);
-
-
+            uploadTLASData();
             // BLAS: bottom level acceleration structure, should be static, can be updated rarely, e.g. when a mesh is added or removed
-            glBindBuffer(GL_TEXTURE_BUFFER, BLASBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, BLASNodes.size() * BLASNodeSize, BLASNodes.data(), GL_STATIC_DRAW);
-            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, BLASBuffer);
-            glBindTexture(GL_TEXTURE_BUFFER, 0);
-
-
-            
+            uploadBLASData();
+            // upload the scene textures
+            uploadSceneTextureArray();
 
             // upload the skybox texture
             if (hasSkybox){
@@ -353,8 +345,25 @@ namespace GPU_RAYTRACER{
             }
             // set the uniforms for the compute shader
             updateUniforms();
+        };
+        
+        void uploadPrimitiveData(){
+            // upload the primitives
+            glBindBuffer(GL_TEXTURE_BUFFER, primitiveBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, encodedPrimitives.size() * PrimitiveSize, encodedPrimitives.data(), GL_STATIC_DRAW);
+        };
+        // TLAS: top level acceleration structure, can be updated frequently as scene changes or meshes move
+        void uploadTLASData(){
+            // upload the TLAS nodes
+            glBindBuffer(GL_TEXTURE_BUFFER, TLASBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, TLASNodes.size() * TLASNodeSize, TLASNodes.data(), GL_STATIC_DRAW);
+        };
 
-            
+        // BLAS: bottom level acceleration structure, should be static, can be updated rarely, e.g. when a mesh is added or removed
+        void uploadBLASData(){
+            // upload the BLAS nodes
+            glBindBuffer(GL_TEXTURE_BUFFER, BLASBuffer);
+            glBufferData(GL_TEXTURE_BUFFER, BLASNodes.size() * BLASNodeSize, BLASNodes.data(), GL_STATIC_DRAW);
         };
 
 

@@ -13,7 +13,7 @@ int main() {
     
     Renderer renderer; // create renderer object, which contains all the rendering functions(glfw, imgui, etc.)
     InputHandler * inputHandler = renderer.inputHandler; // get input handler from renderer
-    Scene Scene; // create Scene object, which contains all the objects in the Scene
+    RayTraceScene Scene; // create Scene object, which contains all the objects in the Scene
     std::cout<<"scene created"<<std::endl;
     RTRTStateMachine state_machine; // create state machine object, which contains all the states and transitions, and handles the state changes
     state_machine.print_state(); // initial state is Default render state
@@ -21,19 +21,13 @@ int main() {
     
     
     renderer.GPURT_manager->loadScene(Scene.rayTraceObjects, Scene.skyboxTexture); // load the scene to the GPU ray tracer
-    renderer.GPURT_manager->compute();
     renderer.screenCanvas->setShader(new Shader("shaders/texture_display.vert", "shaders/texture_display.frag"));
     renderer.GPURT_manager->setScreenCanvas(renderer.screenCanvas);
-
-
 
     // main loop
     while (!glfwWindowShouldClose(renderer.window))
     {
 
-
-
-        
         // check last and current state
         std::string last_state = state_machine.get_current_state()->name;
         state_machine.update();
@@ -133,6 +127,22 @@ int main() {
         // -------------------------------------------------------------------------------
         renderer.swap_buffers();
         renderer.poll_events();
+
+
+        // // update model matrices for scene objects
+        // if (current_state == "Default render state" || current_state == "GPU_ray_tracing state"){
+        //     for (RayTraceObject * rayTraceObject : Scene.rayTraceObjects) {
+        //         rayTraceObject->setModelMatrix(glm::rotate(rayTraceObject->getModelMatrix(),glm::radians(10.0f) * renderer.getFrameDeltaTime(), glm::vec3(0, 1, 0)));
+        //     }
+        //     renderer.GPURT_manager->updateTLAS();
+        // }
+        
+           
+       
+
+
+
+
 	}
 
 
