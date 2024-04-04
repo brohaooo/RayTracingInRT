@@ -239,9 +239,15 @@ namespace GPU_RAYTRACER{
         };
 
         void updateTLAS(){
+            int oldTLASNodeCount = TLASNodes.size();
             TLASNodes.clear();
             constructTLAS();
-            uploadTLASData();
+            if (oldTLASNodeCount == TLASNodes.size()){
+                updateTLASData();
+            }
+            else{
+                uploadTLASData();
+            }
         }
 
 
@@ -356,7 +362,7 @@ namespace GPU_RAYTRACER{
         void uploadTLASData(){
             // upload the TLAS nodes
             glBindBuffer(GL_TEXTURE_BUFFER, TLASBuffer);
-            glBufferData(GL_TEXTURE_BUFFER, TLASNodes.size() * TLASNodeSize, TLASNodes.data(), GL_STATIC_DRAW);
+            glBufferData(GL_TEXTURE_BUFFER, TLASNodes.size() * TLASNodeSize, TLASNodes.data(), GL_DYNAMIC_DRAW);
         };
 
         // BLAS: bottom level acceleration structure, should be static, can be updated rarely, e.g. when a mesh is added or removed
@@ -364,6 +370,12 @@ namespace GPU_RAYTRACER{
             // upload the BLAS nodes
             glBindBuffer(GL_TEXTURE_BUFFER, BLASBuffer);
             glBufferData(GL_TEXTURE_BUFFER, BLASNodes.size() * BLASNodeSize, BLASNodes.data(), GL_STATIC_DRAW);
+        };
+        // if the TLAS remains the same size, we can use glBufferSubData to update the TLAS data
+        // otherwise, we need to call uploadTLASData() to re-allcate the buffer and re-upload the data
+        void updateTLASData(){
+            glBindBuffer(GL_TEXTURE_BUFFER, TLASBuffer);
+            glBufferSubData(GL_TEXTURE_BUFFER, 0, TLASNodes.size() * TLASNodeSize, TLASNodes.data());
         };
 
 
