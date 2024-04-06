@@ -13,6 +13,7 @@
 #include "triangle.h"
 #include "mesh.h"
 #include "transform.h"
+#include "render_manager.h"
 
 
 #endif

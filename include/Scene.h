@@ -73,13 +73,13 @@ public:
         
         
         // teapot, would be a performance bottleneck because of the high triangle count
-        Model* teapot = new Model("resource/teapot.obj");
-        RayTraceObject * rayTraceObject7 = new RayTraceObject(teapot);
-        rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, glm::vec4(0.8, 0.6, 0.8, 1.0));
-        rayTraceObject7->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
-        rayTraceObject7->update();
-        rayTraceObjects.push_back(rayTraceObject7);
-        rayTraceObject7->attachToSceneRenderList(renderQueue);
+        // Model* teapot = new Model("resource/teapot.obj");
+        // RayTraceObject * rayTraceObject7 = new RayTraceObject(teapot);
+        // rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, glm::vec4(0.8, 0.6, 0.8, 1.0));
+        // rayTraceObject7->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+        // rayTraceObject7->update();
+        // rayTraceObjects.push_back(rayTraceObject7);
+        // rayTraceObject7->attachToSceneRenderList(renderQueue);
         
         
         

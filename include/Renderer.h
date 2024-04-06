@@ -8,7 +8,8 @@
 #include <Shader.h>
 #include <Camera.h>
 #include <Scene.h>
-#include <InputHandler.h>
+#include <FrameRateMonitor.h>
+
 
 #include <iostream>
 #include <chrono>
@@ -57,12 +58,12 @@ class Renderer {
     Rect * screenCanvas = nullptr;
     CPU_RAYTRACER::camera * CPURT_camera = nullptr;
     GPU_RAYTRACER::RaytraceManager * GPURT_manager = nullptr;
-    Camera * GL_camera = nullptr;
+    Camera * camera = nullptr;
     int screen_width = 800;
     int screen_height = 600;
     RenderContext context;// not used for now, we use UBO to pass the camera info
+    FrameRateMonitor * frameRateMonitor = nullptr;
 
-    InputHandler * inputHandler = nullptr;
 
     PBR_parameters pbr_params;
 
@@ -70,7 +71,7 @@ class Renderer {
     UBORenderInfo uploadData;
 
 
-	Renderer() {
+	Renderer(int _screen_width, int _screen_height, Camera * camera = nullptr) : camera(camera), screen_width(_screen_width), screen_height(_screen_height) {
 		initialize();
 	}
 
@@ -134,66 +135,14 @@ class Renderer {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
-
-        // setup openGL camera
-        GL_camera = new Camera(glm::vec3(0, 2, 5));
-
-        // modify camera infos before render loop starts
-        GL_camera->MovementSpeed = 1.0f;
-        //camera.Front = glm::vec3(-0.373257, -0.393942, -0.826684);
-        GL_camera->Front = glm::normalize(glm::vec3(0, 2, 0) - GL_camera->Position);
-        GL_camera->ProcessMouseMovement(0, 0); // to update the right and up vector
-
-
-        // set up input handler
-        inputHandler = new InputHandler(window);
-        // set up callback functions by registering lambda functions
-        // mouse movement
-        inputHandler->setMouseMovementCallback([&](double xpos, double ypos) 
-        {
-            move_camera(xpos, ypos);
-        });
-        // scroll input
-        inputHandler->setScrollCallback([&](double yoffset) 
-        {
-            adjust_fov(yoffset);
-        });
-        // frame buffer size change
-        inputHandler->setFramebufferSizeCallback([&](int width, int height) 
-        {
-            adjust_window_size(width, height);
-        });
-        // keyboard input (not using callback function, but call InputHandler's processKeyboardInput() function in the main loop)
-        inputHandler->setKeyboardActionExecution([&]() 
-        {
-            keyboardActions();
-        });
-
-
-
-
         // set up Dear ImGui context
          //imgui config----------------------
         ImGui_initialize();
         // --------------------------------
 
-        Initialize_CPURT_camera();
-
-        
-
         InitializeUbo();
-
         // set up the screenCanvas, it will be used to display the ray tracing result (either CPU version or GPU version)
         screenCanvas = new Rect();
-
-        // set up the CPU ray tracing camera's output texture
-        // it has an alpha channel, to blend with the openGL scene objects
-        CPU_rendered_texture = new Texture(GL_UNSIGNED_BYTE, GL_RGBA);
-        CPU_rendered_texture->setSize(screen_width, screen_height, 4);
-        CPU_rendered_texture->createGPUTexture();
-
-
-        GPURT_manager = new GPU_RAYTRACER::RaytraceManager(screen_width, screen_height, GL_camera, screenCanvas);
 
 	}
 
@@ -218,29 +167,14 @@ class Renderer {
         io.Fonts->AddFontFromFileTTF("resource/fonts/Roboto-Medium.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
     }
 
-    void Initialize_CPURT_camera() {
-        // Setup ray_trace camera
-        CPURT_camera = new CPU_RAYTRACER::camera();
-        CPURT_camera->aspect_ratio = static_cast<float>(screen_width) / screen_height;
-        CPURT_camera->image_width = screen_width;
-        CPURT_camera->samples_per_pixel = 10;
-        CPURT_camera->max_depth = 8;
-        CPURT_camera->vfov = 20;
-        CPURT_camera->lookfrom = GL_camera->Position;
-        CPURT_camera->lookat = GL_camera->Front;
-        CPURT_camera->vup = GL_camera->WorldUp;
-        CPURT_camera->defocus_angle = 0; // no defocus blur, fuck it now, I hate it
-        CPURT_camera->focus_dist = 10;
-    }
-
     void InitializeUbo() {
         
         glGenBuffers(1, &global_ubo);
         glBindBuffer(GL_UNIFORM_BUFFER, global_ubo);
 
-        uploadData.cameraPos = GL_camera->Position;
-        uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
-        uploadData.view = GL_camera->GetViewMatrix();
+        uploadData.cameraPos = camera->Position;
+        uploadData.projection = glm::perspective(glm::radians(camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
+        uploadData.view = camera->GetViewMatrix();
         glBufferData(GL_UNIFORM_BUFFER, sizeof(uploadData), &uploadData, GL_STATIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
@@ -261,22 +195,9 @@ class Renderer {
     }
 
     void updateUboData() {
-		uploadData.cameraPos = GL_camera->Position;
-		uploadData.projection = glm::perspective(glm::radians(GL_camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
-		uploadData.view = GL_camera->GetViewMatrix();
-	}
-
-
-
-    void update_CPURT_camera() {
-		CPURT_camera->lookfrom = GL_camera->Position;
-		CPURT_camera->lookat = GL_camera->Position + GL_camera->Front;
-        CPURT_camera->vfov = GL_camera->Zoom;
-        // when the window size changes
-        CPURT_camera->aspect_ratio = static_cast<float>(screen_width) / screen_height;
-        CPURT_camera->image_width = screen_width;
-
-
+		uploadData.cameraPos = camera->Position;
+		uploadData.projection = glm::perspective(glm::radians(camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
+		uploadData.view = camera->GetViewMatrix();
 	}
 
     void poll_events() {
@@ -292,19 +213,18 @@ class Renderer {
         screenCanvas->draw();
     }
 
-    //void render
-
-	void render(Scene & _scene, bool render_screenCanvas = false, bool render_ImGUI = true) {
-		// render loop
-		// -----------
+    void resize(int _screen_width, int _screen_height) {
+        // make sure the viewport matches the new window dimensions; note that width and 
+        // height will be significantly larger than specified on retina displays.
+        glViewport(0, 0, _screen_width, _screen_height);
+        screen_width = _screen_width;
+        screen_height = _screen_height;
+        updateUboData();
         
-        // per-frame time logic
-        // --------------------
-        per_frame_time_logic();
+    }
 
-        // render part is here
-        // ------
-
+    // render loop
+	void render(Scene & _scene, bool render_screenCanvas = false, bool render_ImGUI = true) {
         // update the UBO data
         updateUboData();
         uploadData.eta = pbr_params.eta;
@@ -332,17 +252,8 @@ class Renderer {
             // but we don't need to render the openGL objects in this case, so we return here
         }
         
-        
-        
         // clear screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            
-
-        // for (auto object : rotate_models) {
-        //     //object->updateRotation(glm::rotate(glm::mat4(1.0f), glm::radians(pbr_params.rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f)));
-        //     object->setModel(glm::rotate(object->model, glm::radians(3.0f), glm::vec3(0.0f, 1.0f, 0.0f)));
-		// }
 
         // debug: draw aabb in raytrace_manager
         if (GPURT_manager != nullptr) {
@@ -370,31 +281,6 @@ class Renderer {
 	}
 
 
-    void per_frame_time_logic() {
-        // per-frame time logic
-        // --------------------
-        float currentFrame = static_cast<float>(glfwGetTime());
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-        fps = 1.0f / deltaTime;
-        LastTime += deltaTime;
-
-
-
-        if (num_frames_in_sliding_window >= num_frames_to_average) {
-            frameTime_list.pop_front();
-            frameTime_list.push_back(currentFrame);
-        }
-        else {
-            frameTime_list.push_back(fps);
-            num_frames_in_sliding_window++;
-        }
-        average_fps = 1.0f * (num_frames_in_sliding_window - 1) / (frameTime_list.back() - frameTime_list.front());
-        // based on the fps, we define whether the simulation is in real time or not
-        // if the average fps is less than 24, we consider it as not real time
-        is_realtime = fps > 24.0f;
-    }
-
     void render_IMGUI() {
 		// imgui---------------------------
 		ImGui_ImplOpenGL3_NewFrame();
@@ -404,12 +290,11 @@ class Renderer {
 		ImGui::SetNextWindowSize(ImVec2(230, 120), ImGuiCond_Always);
         if (ImGui::Begin("LOG", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
 
-			//ImGui::Text("FPS: %.1f \t AVG_FPS: %.1f", fps, average_fps);
-			ImGui::Text("FPS: %.1f ", fps); ImGui::SameLine(); ImGui::Text("| %.1f ", average_fps);
-			ImGui::Text("IS_REALTIME: %s", is_realtime ? "TRUE" : "FALSE");
-			ImGui::Text("CAM POS: %.3f %.3f %.3f", GL_camera->Position[0], GL_camera->Position[1], GL_camera->Position[2]);
-			ImGui::Text("CAM DIR: %.3f %.3f %.3f", GL_camera->Front[0], GL_camera->Front[1], GL_camera->Front[2]);
-			ImGui::Text("CAM FOV: %.3f", GL_camera->Zoom);
+			ImGui::Text("FPS: %.1f ", frameRateMonitor->getFPS()); ImGui::SameLine(); ImGui::Text("| %.1f ", frameRateMonitor->getAverageFPS());
+			ImGui::Text("IS_REALTIME: %s", frameRateMonitor->isRealTime() ? "TRUE" : "FALSE");
+			ImGui::Text("CAM POS: %.3f %.3f %.3f", camera->Position[0], camera->Position[1], camera->Position[2]);
+			ImGui::Text("CAM DIR: %.3f %.3f %.3f", camera->Front[0], camera->Front[1], camera->Front[2]);
+			ImGui::Text("CAM FOV: %.3f", camera->Zoom);
 		}
         ImGui::End();
 //        if (ImGui::Begin("CONTROL PANEL", nullptr)) {
@@ -434,280 +319,17 @@ class Renderer {
 		// --------------------------------
 	}   
 
-    void CPURT_render_thread(const RayTraceScene& Scene) {
-		CPURT_camera->non_blocking_render(Scene.CPURT_objects, CPURT_rendering_finished_flag, &Scene.CPURT_skybox);
 
-        unsigned char* rendered_output = CPURT_camera->rendered_image;
-        if (screenCanvas == nullptr) {
-            std::cout<<"ERROR: screenCanvas is nullptr"<<std::endl;
-            return;
-        }
-        // no matter how many times this function executes, we always use the same texture
-        // so we don't need to create a new texture every time
-        // and GPU ray tracer will use another texture to display the result
-        screenCanvas->setTexture(CPU_rendered_texture);// first declear this empty texture to be used by the screenCanvas
-        // update the texture with the new data
-        CPU_rendered_texture->loadFromData(screen_width, screen_height, 4, rendered_output);
-        CPU_rendered_texture->updateGPUTexture();
-        screenCanvas->setShader(new Shader("shaders/texture_display.vert", "shaders/texture_display.frag"));
-	}
-
-    void set_mouse_input(bool enable) {
-        enable_mouse_input = enable;
-    }
-    void set_keyboard_input(bool enable) {
-		enable_keyboard_input = enable;
-	}
-    void set_camera_movement(bool enable) {
-        enable_camera_movement = enable;
-    }
-
-    bool has_RT_CPU_render_request_flag() {
-		return CPURT_render_request_flag;
-	}
-    bool has_reset_request_flag() {
-        return default_render_request_flag;
-    }
-    bool has_rendering_finished_flag() {
-		return CPURT_rendering_finished_flag;
-	}
-    bool has_RT_switch_to_GPU_flag() {
-        return GPURT_render_request_flag;
-    }
-    void reset_RT_render_request_flag() {
-        CPURT_render_request_flag = false;
-    }
-    void reset_reset_request_flag() {
-		default_render_request_flag = false;
-	}
-    void reset_rendering_finished_flag() {
-        CPURT_rendering_finished_flag = false;
-    }
-    void reset_RT_switch_to_GPU_flag() {
-        GPURT_render_request_flag = false;
-    }
-
-    void updateCPUTexture() {
-        if (CPU_rendered_texture == nullptr) {
-            std::cout << "ERROR: CPU_rendered_texture is nullptr" << std::endl;
-            return;
-        }
-        unsigned char* rendered_output = CPURT_camera->rendered_image;
-        screenCanvas->setTexture(CPU_rendered_texture);
-        CPU_rendered_texture->loadFromData(screen_width, screen_height, 4, rendered_output);
-        CPU_rendered_texture->updateGPUTexture();
-        context.flipYCoord = true; // because our CPU ray tracing image is flipped (origin at top-left corner, while openGL is at bottom-left corner)
-    }
-
-    float getFrameDeltaTime() {
-        return deltaTime;
-    }
 
     private:
     //----------------------------------------------------------------------------------
     const bool _vSync = true; // Enable vsync
 
-    // some events flag
-    bool CPURT_render_request_flag = false;
-    bool default_render_request_flag = false;
-    bool CPURT_rendering_finished_flag = false;
-    bool GPURT_render_request_flag = false;
-
-    // some control flags
-    bool enable_mouse_input = true;
-    bool enable_keyboard_input = true;
-    bool enable_camera_movement = true;
-
-    // input callback functions
-    void adjust_window_size(int width, int height);
-    void move_camera(double xpos, double ypos);
-    void adjust_fov(double yoffset);
-    void keyboardActions();
-
-    // mouse movement variables
-    float lastX = screen_width / 2.0f;
-    float lastY = screen_height / 2.0f;
-    bool firstMouse = true;
-
-    // timing
-    float deltaTime = 0.0f;	// time between current frame and last frame
-    float lastFrame = 0.0f;
-    float LastTime = 0.0f;
-    bool is_realtime = true; // the current simulation is in real time or not
-    float average_fps = 0.0f;
-    float fps = 0.0f;
-    float sliding_deltaTime = 0.0f;
-    const int num_frames_to_average = 100;
-    int num_frames_in_sliding_window = 0;
-    std::list<float> frameTime_list;
-
-    // key press
-    bool isSpaceKeyPressed = false;
-    bool isRightKeyPressed = false;
-    bool isDownKeyPressed = false;
-
-    // CPU ray tracing camera output texture
-    Texture * CPU_rendered_texture = nullptr;
-
 };
 
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
-void Renderer::adjust_window_size(int width, int height)
-{
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
-    glViewport(0, 0, width, height);
-    screen_width = width;
-    screen_height = height;
-    updateUboData();
-    // update the ray tracing camera
-    update_CPURT_camera();
-    // reset the frame count for GPU ray tracing
-    if (GPURT_manager != nullptr) {
-        GPURT_manager->resetFrameCounter();
-        GPURT_manager->changeScreenSize(width, height);
-    }
-    
-}
 
 
-
-// glfw: whenever the mouse moves, this callback is called
-// -------------------------------------------------------
-void Renderer::move_camera(double xposIn, double yposIn)
-{
-    float xpos = static_cast<float>(xposIn);
-    float ypos = static_cast<float>(yposIn);
-
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
-
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-
-    lastX = xpos;
-    lastY = ypos;
-    if (enable_mouse_input) {
-        GL_camera->ProcessMouseMovement(xoffset, yoffset);
-        if(this->GPURT_manager != nullptr) {
-            this->GPURT_manager->resetFrameCounter();
-        }
-    }
-}
-
-
-
-
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
-void Renderer::adjust_fov(double yoffset)
-{
-    if (enable_mouse_input){
-        GL_camera->ProcessMouseScroll(static_cast<float>(yoffset));
-        if (this->GPURT_manager != nullptr) {
-            this->GPURT_manager->resetFrameCounter();
-        }
-    }
-}
-
-void Renderer::keyboardActions()
-{
-    if (enable_keyboard_input){
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, true);
-
-        if (enable_camera_movement) {
-            bool camera_moved = false;
-	    	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){
-                GL_camera->ProcessKeyboard(FORWARD, deltaTime);
-                camera_moved = true;
-            }
-	    		
-	    	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS){
-                GL_camera->ProcessKeyboard(BACKWARD, deltaTime);
-                camera_moved = true;
-            }
-	    	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS){
-                GL_camera->ProcessKeyboard(LEFT, deltaTime);
-                camera_moved = true;
-            }
-	    	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS){
-                GL_camera->ProcessKeyboard(RIGHT, deltaTime);
-                camera_moved = true;
-            }
-	    	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS){
-                GL_camera->ProcessKeyboard(UP, deltaTime);
-                camera_moved = true;
-            }
-	    	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS){
-                GL_camera->ProcessKeyboard(DOWN, deltaTime);
-                camera_moved = true;
-            }
-            if (camera_moved) {
-                if(this->GPURT_manager != nullptr) {
-                    this->GPURT_manager->resetFrameCounter();
-                }
-            }
-	    }
-
-        if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-            set_camera_movement(false);
-            set_mouse_input(false);
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-	    }
-        if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-            set_camera_movement(true);
-            set_mouse_input(true);
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        }
-
-        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
-            CPURT_render_request_flag = true;
-        }
-        else {
-            CPURT_render_request_flag = false;
-        }
-
-        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
-            default_render_request_flag = true;
-        }
-        else {
-            default_render_request_flag = false;
-	    }
-
-        if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
-            GPURT_render_request_flag = true;
-        }
-        else {
-            GPURT_render_request_flag = false;
-        }
-
-        
-
-        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-            if (!isRightKeyPressed) {
-
-            }
-            isRightKeyPressed = true;
-        }
-        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-            if (!isDownKeyPressed) {
-
-            }
-
-            isDownKeyPressed = true;
-        }
-        else {
-            isDownKeyPressed = false;
-        }
-    }
-}
 
 
 

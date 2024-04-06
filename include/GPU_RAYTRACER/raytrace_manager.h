@@ -307,7 +307,7 @@ namespace GPU_RAYTRACER{
                 int BLASIndex = objectBLASIndex[obj];
                 glm::mat4 model = obj->modelMatrix;
                 for (int i = 0; i < obj->localBLAS.size(); i++){
-                    BLASNode node = obj->localBLAS[i+BLASIndex];
+                    BLASNode node = obj->localBLAS[i];
                     //if (node.n == 0){
                     //    continue;
                     //}
@@ -436,6 +436,8 @@ namespace GPU_RAYTRACER{
         // visualizing the result of the ray tracing will be possible from outside by letting the screenCanvas to render
         void activate(){
             screenCanvas->setTexture(renderTexture);
+            screenCanvas->shader->use();
+            screenCanvas->shader->setBool("flipYCoord", true);
         };
         // deactivate the GPU ray tracing pipeline, it will unbind the shader for screenCanvas
         // void deactivate(){

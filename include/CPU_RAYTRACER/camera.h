@@ -35,9 +35,9 @@ namespace CPU_RAYTRACER {
         unsigned char * rendered_image = nullptr;
 
 
-        void non_blocking_render(const hittable& world, bool & finish_flag, const skybox* skybox = nullptr) {
+        void non_blocking_render(const hittable& world, const skybox* skybox = nullptr) {
             initialize();
-            std::thread t(&camera::render_thread, this, std::ref(world), std::ref(finish_flag), skybox);
+            std::thread t(&camera::render_thread, this, std::ref(world), std::ref(finished_rendering), skybox);
             t.detach();
         }
 
@@ -142,8 +142,15 @@ namespace CPU_RAYTRACER {
             std::clog << "\rDone.                 \n";
         }
         //--------------------------------------------------------------------------------
+        void resetFinished() {
+            finished_rendering = false;
+        }
+        bool isFinished() {
+            return finished_rendering;
+        }
 
       private:
+        bool finished_rendering = false; // used for non-blocking rendering, it is set to true when rendering is finished
         int    image_height;    // Rendered image height
         glm::vec3 center;          // Camera center
         glm::vec3 pixel00_loc;     // Location of pixel 0, 0

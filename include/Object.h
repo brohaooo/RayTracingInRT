@@ -16,8 +16,6 @@ public:
 	glm::mat4 viewMatrix;
 	glm::mat4 projectionMatrix;
 	glm::vec3 cameraPos;
-	// other things like light position, etc.
-	bool flipYCoord;
 };
 
 
@@ -88,8 +86,7 @@ class Rect : public ScreenSpaceObject {
 		};
 
 		void prepareDraw(const RenderContext& context) override {
-			shader->use();
-			shader->setBool("flipYCoord", context.flipYCoord);
+			
 		}
 
 		void draw() override {
