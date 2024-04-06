@@ -6,14 +6,14 @@
 #include "../Camera.h"
 #include "../Texture.h"
 #include <vector>
-#include "../Object.h"
+#include "../GraphicObject.h"
 
 namespace CPU_RAYTRACER {
     class render_manager
     {
     public:
 
-        render_manager(int _width, int _height, const Camera * camera, Rect * _screenCanvas)
+        render_manager(int _width, int _height, const Camera * camera, GRect * _screenCanvas)
         {
             
             this->GL_camera = camera;
@@ -34,6 +34,7 @@ namespace CPU_RAYTRACER {
         }
 
         void CPURT_render_thread() {
+            updateBVH(); // ensure the BVH tree is up-to-date
 		    CPURT_camera->non_blocking_render(BVH_root, skybox);
             unsigned char* rendered_output = CPURT_camera->rendered_image;
             if (screenCanvas == nullptr) {
@@ -111,7 +112,7 @@ namespace CPU_RAYTRACER {
     private:
         const Camera * GL_camera = nullptr; // camera for OpenGL rendering
         camera * CPURT_camera = nullptr; // camera for CPU ray tracing, should be updated based on the OpenGL camera
-        Rect * screenCanvas = nullptr; // screen canvas for OpenGL rendering
+        GRect * screenCanvas = nullptr; // screen canvas for OpenGL rendering
         Texture * CPU_rendered_texture = nullptr; // texture for CPU ray tracing
 
         shared_ptr<hittable_list> rayTraceObjectsList = nullptr; // it should be a list of hittable objects for CPU ray tracing (not the BVH tree!)

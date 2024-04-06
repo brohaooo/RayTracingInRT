@@ -12,7 +12,7 @@ namespace GPU_RAYTRACER{
 
     class RaytraceManager{
     public:
-        RaytraceManager(int _width, int _height, const Camera * _camera, Rect * _screenCanvas) : camera(_camera), screenCanvas(_screenCanvas), width(_width), height(_height)
+        RaytraceManager(int _width, int _height, const Camera * _camera, GRect * _screenCanvas) : camera(_camera), screenCanvas(_screenCanvas), width(_width), height(_height)
         {
             // generate the render texture
             renderTexture = new TextureRenderTarget(GL_FLOAT, GL_RGBA32F);            
@@ -428,7 +428,7 @@ namespace GPU_RAYTRACER{
 
 
         };
-        void setScreenCanvas(Rect * _screenCanvas){
+        void setScreenCanvas(GRect * _screenCanvas){
             screenCanvas = _screenCanvas;
         };
 
@@ -470,7 +470,7 @@ namespace GPU_RAYTRACER{
         GLuint AABB_VAO, AABB_VBO; // VAO and VBO for drawing AABBs
 
         // ref to screen quad object 
-        Rect * screenCanvas;
+        GRect * screenCanvas;
         // ref to camera object, to get the view matrix and the projection matrix
         // to figure the ray directions in the compute shader
         const Camera * camera;

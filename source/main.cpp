@@ -23,7 +23,7 @@ int main() {
     Renderer renderer(initial_width, initial_height, camera);
     // --- get screen canvas from renderer, it will be the final output in deferred rendering --
     // it will be used to display the ray tracing result
-    Rect * screenCanvas = renderer.screenCanvas; 
+    GRect * screenCanvas = renderer.screenCanvas; 
     screenCanvas->setShader(new Shader("shaders/texture_display.vert", "shaders/texture_display.frag"));
     // -----------------------------------------------------------------------------------------
     // ------------------------------ create Scene object --------------------------------------

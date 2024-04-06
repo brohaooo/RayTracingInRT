@@ -64,7 +64,7 @@ public:
         skyboxTexture = new SkyboxTexture();
         skyboxTexture->loadFromFolder("resource/skybox");
         skyboxTexture->createSkyboxTexture();
-        Skybox * _skybox = new Skybox();
+        GSkybox * _skybox = new GSkybox();
         _skybox->setShader(new Shader("shaders/skybox_shader.vert", "shaders/skybox_shader.frag"));
         _skybox->setTexture(skyboxTexture);
         RayTraceSkybox * rayTraceSkybox = new RayTraceSkybox(_skybox);
@@ -84,7 +84,7 @@ public:
         
         
         // the ground sphere
-        Sphere * sphereObject2 = new Sphere();
+        GSphere * sphereObject2 = new GSphere();
         RayTraceObject * rayTraceObject2 = new RayTraceObject(sphereObject2);
         rayTraceObject2->setMaterial(LAMBERTIAN, 0.0, glm::vec4(0.5, 0.5, 0.5, 1.0));
         rayTraceObject2->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
@@ -97,7 +97,7 @@ public:
         Texture * earthTexture = new Texture();
         earthTexture->loadFromFile("resource/earthmap.jpg");
         earthTexture->createGPUTexture();
-        Sphere* sphereObject3 = new Sphere();
+        GSphere* sphereObject3 = new GSphere();
         RayTraceObject * rayTraceObject3 = new RayTraceObject(sphereObject3);
         rayTraceObject3->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), earthTexture);
         
@@ -108,7 +108,7 @@ public:
         
         
         // the metal sphere
-        Sphere* sphereObject4 = new Sphere();
+        GSphere* sphereObject4 = new GSphere();
         RayTraceObject * rayTraceObject4 = new RayTraceObject(sphereObject4);
         rayTraceObject4->setMaterial(METAL, 0.2, glm::vec4(0.7, 0.6, 0.5, 1.0));
         rayTraceObject4->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
@@ -117,7 +117,7 @@ public:
         rayTraceObject4->attachToSceneRenderList(renderQueue);
         
         // diffuse light sphere
-        Sphere* sphereObject5 = new Sphere();
+        GSphere* sphereObject5 = new GSphere();
         RayTraceObject * rayTraceObject5 = new RayTraceObject(sphereObject5);
         rayTraceObject5->setMaterial(EMISSIVE, 0.0, glm::vec4(2, 2, 2, 1.0));
         rayTraceObject5->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
@@ -127,7 +127,7 @@ public:
         
         
         
-        Triangle* triangleObject = new Triangle(v0, v1, v2);
+        GTriangle* triangleObject = new GTriangle(v0, v1, v2);
         RayTraceObject * rayTraceObject6 = new RayTraceObject(triangleObject);
         rayTraceObject6->setMaterial(LAMBERTIAN, 0.0, glm::vec4(0.5, 0.5, 0.5, 1.0));
         rayTraceObject6->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
@@ -140,7 +140,7 @@ public:
         Texture * cubeTexture = new Texture();
         cubeTexture->loadFromFile("resource/night.png");
         cubeTexture->createGPUTexture();
-        Model* cubeObject = new Model("resource/cube.obj");
+        GModel* cubeObject = new GModel("resource/cube.obj");
         RayTraceObject * rayTraceObject8 = new RayTraceObject(cubeObject);
         rayTraceObject8->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), cubeTexture);
         rayTraceObject8->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.5, 2.0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
@@ -149,7 +149,7 @@ public:
         rayTraceObject8->attachToSceneRenderList(renderQueue);
         
         // the glass sphere (transparent object in rendering order)
-        Sphere * sphereObject = new Sphere();
+        GSphere * sphereObject = new GSphere();
         RayTraceObject * rayTraceObject1 = new RayTraceObject(sphereObject,TRANSPARENT);
         rayTraceObject1->setMaterial(DIELECTRIC, 1.5, glm::vec4(0.3, 0.4, 0.8, 0.2));
         rayTraceObject1->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
@@ -170,20 +170,8 @@ public:
         for(RayTraceObject* rayTraceObject : rayTraceObjects) {
                 CPURT_objects.add(rayTraceObject->CPU_object);
         }
-        
-        
-        //CPURT_objects = CPU_RAYTRACER::hittable_list(make_shared<CPU_RAYTRACER::BVH_node>(CPURT_objects));
-    
+            
     }
-
-    void updateCPU_RT_objects() {
-        CPURT_objects.clear();
-        for(RayTraceObject* rayTraceObject : rayTraceObjects) {
-            CPURT_objects.add(rayTraceObject->CPU_object);
-        }
-        CPURT_objects = CPU_RAYTRACER::hittable_list(make_shared<CPU_RAYTRACER::BVH_node>(CPURT_objects));
-    }
-
 
 };
 

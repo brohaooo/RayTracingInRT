@@ -1,5 +1,5 @@
-#ifndef OBJECT_H
-#define OBJECT_H
+#ifndef GOBJECT_H
+#define GOBJECT_H
 
 #include <glm/glm.hpp>
 #include <glad/glad.h>
@@ -8,6 +8,10 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <Texture.h>
+
+// GObject: G stands for Graphics, the base class for all graphics objects (mesh, sphere, etc.)
+// it contains the basic opengl objects (VAO, VBO, EBO) and a shader reference, necessary for rendering
+
 
 // render context, contains view matrix, projection matrix, camera position, etc.
 // not used currently, we use ubo to pass vp matrix
@@ -19,7 +23,7 @@ public:
 };
 
 
-class Object {
+class GObject {
 public:
 	// render related opengl objects references
 	GLuint VAO;
@@ -48,14 +52,14 @@ public:
 	}
 };
 
-class ScreenSpaceObject : public Object {
+class GScreenSpaceObject : public GObject {
 };
 
 
 
-class Rect : public ScreenSpaceObject {
+class GRect : public GScreenSpaceObject {
 	public:
-		Rect() {
+		GRect() {
 			GLfloat vertices[] =
 			{
 				// Positions    	// uv
@@ -102,7 +106,7 @@ class Rect : public ScreenSpaceObject {
 		}
 };
 
-class MVPObject : public Object {
+class GMVPObject : public GObject {
 public:
 	glm::mat4 model;
 	glm::vec4 color;
@@ -120,18 +124,18 @@ public:
 
 // the sphere object's VBO data is its object space vertex data
 // by default, the sphere is at the origin, with radius 1
-class Sphere : public MVPObject {
+class GSphere : public GMVPObject {
 public:
 	GLuint EBO;
 	float radius;
 	glm::vec3 center;
-	Sphere() {
+	GSphere() {
 		radius = 1.0f;
 		center = glm::vec3(0.0f, 0.0f, 0.0f);
 		generateBufferResource();
 	}
 	// another initialization function, set the center and radius of the sphere
-	Sphere(glm::vec3 _center, float _radius) {
+	GSphere(glm::vec3 _center, float _radius) {
 		center = _center;
 		radius = _radius;
 		generateBufferResource();
@@ -224,7 +228,7 @@ public:
 };
 
 
-class TransparantSphere : public Sphere {
+class GTransparantSphere : public GSphere {
 
 public:
 	float transparancy = 0.5;
@@ -258,13 +262,13 @@ public:
 
 
 // a single triangle
-class Triangle : public MVPObject {
+class GTriangle : public GMVPObject {
 public:
 glm::vec3 v0,v1,v2;
 glm::vec3 n0,n1,n2;
 glm::vec2 t0,t1,t2;
 
-	Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
+	GTriangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2):v0(_v0),v1(_v1),v2(_v2)
 	{
 		// a triangle has only one normal(if it is just a single triangle)
 		n0 = n1 = n2 = glm::normalize(glm::cross(v1 - v0, v2 - v0));
@@ -274,7 +278,7 @@ glm::vec2 t0,t1,t2;
 		t2 = glm::vec2(0.5, 0);
 		generateBufferResource();
 	};
-	Triangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2, glm::vec3 _t0, glm::vec3 _t1, glm::vec3 _t2):v0(_v0),v1(_v1),v2(_v2),t0(_t0),t1(_t1),t2(_t2)
+	GTriangle(glm::vec3 _v0, glm::vec3 _v1, glm::vec3 _v2, glm::vec3 _t0, glm::vec3 _t1, glm::vec3 _t2):v0(_v0),v1(_v1),v2(_v2),t0(_t0),t1(_t1),t2(_t2)
 	{
 		
 		n0 = n1 = n2 = glm::normalize(glm::cross(v1 - v0, v2 - v0));
@@ -330,11 +334,11 @@ glm::vec2 t0,t1,t2;
 };
 
 // a skybox cube, doesn't need M matrix, has its own shader, has cube texture
-class Skybox : public MVPObject {
+class GSkybox : public GMVPObject {
 public:
 
 	SkyboxTexture * skyboxTexture;
-	Skybox() {
+	GSkybox() {
 		GLfloat skyboxVertices[] = {
 			// positions          
 			-1.0f,  1.0f, -1.0f,
@@ -423,7 +427,7 @@ private:
 };
 
 // mesh object, loaded from file via assimp
-class Mesh : public MVPObject {
+class GMesh : public GMVPObject {
 	public:
 	// mesh data
 	std::vector<glm::vec3> positions;
@@ -442,7 +446,7 @@ class Mesh : public MVPObject {
 	
 
 	// constructor
-	Mesh(aiMesh* mesh)
+	GMesh(aiMesh* mesh)
 	{
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 		{
@@ -537,7 +541,7 @@ class Mesh : public MVPObject {
 	}
 
 	// only load the first mesh in the file, not recommended, use Model class instead
-	Mesh(const char* filename) {
+	GMesh(const char* filename) {
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
@@ -546,7 +550,7 @@ class Mesh : public MVPObject {
 		}
 		aiMesh* mesh = scene->mMeshes[0];
 
-		*this = Mesh(mesh);
+		*this = GMesh(mesh);
 	}
 
 
@@ -629,10 +633,10 @@ class Mesh : public MVPObject {
 
 
 // model object, contains multiple meshes and textures
-class Model : public MVPObject {
+class GModel : public GMVPObject {
 	public:
-	std::vector<Mesh*> meshes;
-	Model(std::string const& path)
+	std::vector<GMesh*> meshes;
+	GModel(std::string const& path)
 	{
 		Assimp::Importer importer;
 		// noticing that we use aiProcessPreset_TargetRealtime_Quality, which is a combination of multiple flags
@@ -647,7 +651,7 @@ class Model : public MVPObject {
 		for (unsigned int i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* mesh = scene->mMeshes[i];
-			Mesh *m = new Mesh(mesh);
+			GMesh *m = new GMesh(mesh);
 			meshes.push_back(m);
 		}
 

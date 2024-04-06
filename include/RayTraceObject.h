@@ -1,7 +1,7 @@
 #ifndef RAYTRACEOBJECT_H
 #define RAYTRACEOBJECT_H
 
-#include "Object.h"
+#include "GraphicObject.h"
 #include "SceneObject.h"
 #include <GPU_RAYTRACER/GPU_RAYTRACER.h>
 #include <CPU_RAYTRACER/CPU_RAYTRACER.h>
@@ -16,7 +16,7 @@ enum MaterialType {
 
 class ObjectRenderComponent : public RenderComponent {
 public:
-    ObjectRenderComponent(MVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
+    ObjectRenderComponent(GMVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
         this->obj = _obj;
         renderPriority = _renderPriority;
     }
@@ -24,20 +24,20 @@ public:
         obj->draw();
     }
 private:
-    MVPObject * obj;
+    GMVPObject * obj;
 };
 
 
 
 
 
-// RayTraceObject class, it is designed to connect the Object class and the ray tracing pipeline in the GPU
+// RayTraceObject class, it is designed to connect the GObject class and the ray tracing pipeline in the GPU
 // the main feature is to manage the data transfer between the CPU and the GPU: primitive, BVH, material, texture, model matrix, etc.
 // it also in charge of detecting whether the scene has changed, so that GPU raytracer can update the scene data via updating TLAS
-// instead of inheriting from Object class, it contains an Object pointer, and it can be constructed from an Object pointer
+// instead of inheriting from GObject class, it contains an GObject pointer, and it can be constructed from an GObject pointer
 class RayTraceObject : public RenderableSceneObject {
 public:
-    RayTraceObject(MVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
+    RayTraceObject(GMVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
         this->obj = _obj;
         encodePrimitive();
         constructLocalBLAS();
@@ -108,7 +108,7 @@ public:
     }
     
     // default rendering components
-    MVPObject * obj = nullptr; // the default object, it is used for forward rendering in the default renderer
+    GMVPObject * obj = nullptr; // the default object, it is used for forward rendering in the default renderer
     
     
 
@@ -162,8 +162,8 @@ public:
             CPU_material = make_shared<CPU_RAYTRACER::lambertian>(glm::vec3(1,0,0));
         }
         // then construct the CPU object
-        if (dynamic_cast<Triangle*>(obj)){
-            Triangle * triangle = dynamic_cast<Triangle*>(obj);
+        if (dynamic_cast<GTriangle*>(obj)){
+            GTriangle * triangle = dynamic_cast<GTriangle*>(obj);
             // construct the triangle object without transformation
             shared_ptr<CPU_RAYTRACER::hittable> primitiveObject = make_shared<CPU_RAYTRACER::triangle>(triangle->v0, triangle->v1, triangle->v2, CPU_material, triangle->t0, triangle->t1, triangle->t2, triangle->n0, triangle->n1, triangle->n2);\
             // then apply the transformation
@@ -172,17 +172,17 @@ public:
             // currently, only translation is supported
             CPU_object_transform = std::dynamic_pointer_cast<CPU_RAYTRACER::transform>(CPU_object);
         }
-        else if (dynamic_cast<Sphere*>(obj)){
-            Sphere * sphere = dynamic_cast<Sphere*>(obj);
+        else if (dynamic_cast<GSphere*>(obj)){
+            GSphere * sphere = dynamic_cast<GSphere*>(obj);
             shared_ptr<CPU_RAYTRACER::hittable> primitiveObject = make_shared<CPU_RAYTRACER::sphere>(sphere->center, sphere->radius, CPU_material);
             CPU_object = make_shared<CPU_RAYTRACER::transform>(primitiveObject, modelMatrix);
             CPU_object_transform = std::dynamic_pointer_cast<CPU_RAYTRACER::transform>(CPU_object);
 
         }
-        else if (dynamic_cast<Model*>(obj)){
-            Model * model = dynamic_cast<Model*>(obj);
+        else if (dynamic_cast<GModel*>(obj)){
+            GModel * model = dynamic_cast<GModel*>(obj);
             std::vector<shared_ptr<CPU_RAYTRACER::hittable>> hittable_triangles;
-            for (Mesh* mesh : model->meshes){
+            for (GMesh* mesh : model->meshes){
                 load_triangles(hittable_triangles, mesh->positions, mesh->uvs, mesh->normals, mesh->indices, CPU_material);
             }
             auto hittable_mesh = make_shared<CPU_RAYTRACER::mesh>(hittable_triangles);
@@ -207,8 +207,8 @@ public:
         // first check the type of the object via dynamic_cast: if it is a triangle, a sphere, or a model with multiple meshes
         localEncodedPrimitives.clear();
         localEncodedPrimitives.resize(0);
-        if (dynamic_cast<Triangle*>(obj)){
-            Triangle * triangle = dynamic_cast<Triangle*>(obj);
+        if (dynamic_cast<GTriangle*>(obj)){
+            GTriangle * triangle = dynamic_cast<GTriangle*>(obj);
             // encode the triangle to the primitive struct
             GPU_RAYTRACER::Primitive primitive;
             primitive.primitiveInfo = glm::vec3(0, 0, 0); // x: primitive type(0: triangle, 1: sphere), yz: reserved
@@ -224,8 +224,8 @@ public:
             localEncodedPrimitives.push_back(primitive);
             
         }
-        else if (dynamic_cast<Sphere*>(obj)){
-            Sphere * sphere = dynamic_cast<Sphere*>(obj);
+        else if (dynamic_cast<GSphere*>(obj)){
+            GSphere * sphere = dynamic_cast<GSphere*>(obj);
             // encode the sphere to the primitive struct
             GPU_RAYTRACER::Primitive primitive;
             primitive.primitiveInfo = glm::vec3(1, 0, 0); // x: primitive type(0: triangle, 1: sphere), yz: reserved
@@ -241,11 +241,11 @@ public:
             localEncodedPrimitives.push_back(primitive);
             
         }
-        else if (dynamic_cast<Model*>(obj)){
-            Model * model = dynamic_cast<Model*>(obj);
+        else if (dynamic_cast<GModel*>(obj)){
+            GModel * model = dynamic_cast<GModel*>(obj);
             // encode the model to the primitive struct
             // loop through the triangles of the model on all the meshes
-            for(Mesh* mesh : model->meshes){
+            for(GMesh* mesh : model->meshes){
                 for (unsigned int i = 0; i < mesh->indices.size(); i+=3){
                     // encode the triangle to the primitive struct
                     GPU_RAYTRACER::Primitive primitive;
@@ -277,8 +277,8 @@ public:
         // first check the type of the object via dynamic_cast: if it is a triangle, a sphere, or a model with multiple meshes
         localBLAS.clear();
         localBLAS.resize(0);
-        if (dynamic_cast<Triangle*>(obj)){
-            Triangle * triangle = dynamic_cast<Triangle*>(obj);
+        if (dynamic_cast<GTriangle*>(obj)){
+            GTriangle * triangle = dynamic_cast<GTriangle*>(obj);
             // calculate the AABB of the triangle
             AA = glm::min(triangle->v0, glm::min(triangle->v1, triangle->v2));
             BB = glm::max(triangle->v0, glm::max(triangle->v1, triangle->v2));
@@ -292,8 +292,8 @@ public:
             node.BB = glm::vec4(BB, 0);
             localBLAS.push_back(node);// only one triangle, so only one BLAS node
         }
-        else if (dynamic_cast<Sphere*>(obj)){
-            Sphere * sphere = dynamic_cast<Sphere*>(obj);
+        else if (dynamic_cast<GSphere*>(obj)){
+            GSphere * sphere = dynamic_cast<GSphere*>(obj);
             // calculate the AABB of the sphere
             glm::vec3 center = sphere->center;
             float radius = sphere->radius;
@@ -310,8 +310,8 @@ public:
             localBLAS.push_back(node);// only one sphere, so only one BLAS node
 
         }
-        else if (dynamic_cast<Model*>(obj)){
-            Model * model = dynamic_cast<Model*>(obj);
+        else if (dynamic_cast<GModel*>(obj)){
+            GModel * model = dynamic_cast<GModel*>(obj);
             // encode the model to the primitive struct
             // loop through the triangles of the model on all the meshes
             // similar to the TLAS construction, we need to construct the BLAS tree recursively in the index-array format
@@ -542,9 +542,9 @@ public:
 class RayTraceSkybox : public RenderableSceneObject {
 public:
 CPU_RAYTRACER::skybox * CPU_skybox;
-Skybox * skybox;
+GSkybox * skybox;
 
-RayTraceSkybox(Skybox * _skybox) {
+RayTraceSkybox(GSkybox * _skybox) {
     this->skybox = _skybox;
     this->renderComponent = std::make_shared<ObjectRenderComponent>(_skybox, SKYBOX);
     // copy the skybox data to CPU_skybox

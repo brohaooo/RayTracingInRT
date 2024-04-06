@@ -55,7 +55,7 @@ class Renderer {
 
     GLFWwindow * window = nullptr;
     Shader * shader = nullptr;
-    Rect * screenCanvas = nullptr;
+    GRect * screenCanvas = nullptr;
     CPU_RAYTRACER::camera * CPURT_camera = nullptr;
     GPU_RAYTRACER::RaytraceManager * GPURT_manager = nullptr;
     Camera * camera = nullptr;
@@ -142,7 +142,7 @@ class Renderer {
 
         InitializeUbo();
         // set up the screenCanvas, it will be used to display the ray tracing result (either CPU version or GPU version)
-        screenCanvas = new Rect();
+        screenCanvas = new GRect();
 
 	}
 
