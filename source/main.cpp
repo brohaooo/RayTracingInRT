@@ -89,7 +89,9 @@ int main() {
         keyboardActions(&state_machine, cameraController, deltaTime, window, GPURT_manager);
     });
     // -----------------------------------------------------------------------------------------
-    
+    // ------------------- get the list of scene objects from the scene ------------------------
+    // they will be ticked in the main loop (some will also be rendered in the rendering loop)
+    std::vector<SceneObject*> & sceneObjects = Scene.sceneObjects;
 
     // main loop
     while (!glfwWindowShouldClose(renderer.window))
@@ -97,7 +99,7 @@ int main() {
         // -------------------------- logic part of the main loop --------------------------------
         // update the frame rate monitor
         frameRateMonitor->update();
-
+        float deltaTime = frameRateMonitor->getFrameDeltaTime();
         // update the state machine
         std::string last_state = state_machine.get_current_state()->name;
         state_machine.update();
@@ -105,15 +107,19 @@ int main() {
         // process keyboard input (checking all the keys every frame)
         inputHandler->processKeyboardInput(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
 
-
-
-        // update model matrices for scene objects
-        if (current_state == "Default render state" || current_state == "GPU_ray_tracing state"){
-            for (RayTraceObject * rayTraceObject : Scene.rayTraceObjects) {
-                rayTraceObject->setModelMatrix(glm::rotate(rayTraceObject->getModelMatrix(),glm::radians(10.0f) * frameRateMonitor->getFrameDeltaTime(), glm::vec3(0, 1, 0)));
-            }
-            GPURT_manager->updateTLAS();
+        // Tick all the scene objects
+        for (SceneObject * sceneObject : sceneObjects) {
+            sceneObject->Tick(deltaTime);
         }
+
+
+        // // update model matrices for scene objects
+        // if (current_state == "Default render state" || current_state == "GPU_ray_tracing state"){
+        //     for (RayTraceObject * rayTraceObject : Scene.rayTraceObjects) {
+        //         rayTraceObject->setModelMatrix(glm::rotate(rayTraceObject->getModelMatrix(),glm::radians(10.0f) * frameRateMonitor->getFrameDeltaTime(), glm::vec3(0, 1, 0)));
+        //     }
+        //     GPURT_manager->updateTLAS();
+        // }
 
 
         // if state changed, print it as debugging info

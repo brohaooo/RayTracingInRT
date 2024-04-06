@@ -11,10 +11,10 @@ public:
         components.push_back(component);
     }
 
-    void Tick() {
+    void Tick(float deltaTime) {
         if (!active) return;
         for (auto& component : components) {
-            component->Tick();
+            component->Tick(deltaTime);
         }
     }
 
@@ -45,9 +45,17 @@ class RenderableSceneObject : public SceneObject {
 public:
 
     void attachToSceneRenderList(std::vector<std::shared_ptr<RenderComponent>>& renderQueue) {
+        if (this->renderComponent == nullptr) {
+            std::cout<< "ERROR: [attach] RenderComponent is nullptr\n"<<std::endl;
+            return;
+        }
         renderQueue.push_back(this->renderComponent);
     }
     void detachFromSceneRenderList(std::vector<std::shared_ptr<RenderComponent>>& renderQueue) {
+        if (this->renderComponent == nullptr) {
+            std::cout<< "ERROR: [detach] RenderComponent is nullptr\n"<<std::endl;
+            return;
+        }
         auto it = std::find(renderQueue.begin(), renderQueue.end(), this->renderComponent);
         if (it != renderQueue.end()) {
             renderQueue.erase(it);

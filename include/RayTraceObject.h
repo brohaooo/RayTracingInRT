@@ -28,6 +28,19 @@ private:
 };
 
 
+class ObjectAnimationComponent : public IComponent {
+public:
+    ObjectAnimationComponent(GMVPObject * _obj) {
+        this->obj = _obj;
+    }
+    void Tick(float deltaTime) override {
+        obj->setModel(glm::rotate(obj->model,glm::radians(3.0f) * deltaTime, glm::vec3(0, 1, 0)));
+    }
+private:
+    GMVPObject * obj;
+};
+
+
 
 
 

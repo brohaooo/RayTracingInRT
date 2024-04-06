@@ -51,6 +51,7 @@ public:
     // Each instance of RayTraceObject simultaneously encapsulates the necessary data and functionality for three distinct rendering techniques: CPU ray tracing, GPU ray tracing, and rasterization. 
     // This design allows each RayTraceObject to be easily added and updated in these three rendering pipelines. 
     std::vector<RayTraceObject*> rayTraceObjects; 
+
     RayTraceScene(){
     
         glm::vec3 rotationAxis = glm::vec3(0, 1, 0); // 旋转轴（绕y轴）
@@ -164,9 +165,15 @@ public:
         std::sort(renderQueue.begin(), renderQueue.end(), [](std::shared_ptr<RenderComponent> a, std::shared_ptr<RenderComponent> b) {
             return a->renderPriority < b->renderPriority;
         });
+
+
+        // remember to add all these RayTraceObjects to sceneObjects
+        for(RayTraceObject* rayTraceObject : rayTraceObjects) {
+            sceneObjects.push_back(rayTraceObject);
+        }
     
     
-        // ------------------ temporary, for testing CPU ray tracing objects ------------------
+        // ------------------ temporary, now use a hittable_list to store all objects which can be parsed to the CPU ray tracer ------------------
         for(RayTraceObject* rayTraceObject : rayTraceObjects) {
                 CPURT_objects.add(rayTraceObject->CPU_object);
         }

@@ -5,7 +5,7 @@
 class IComponent {
 public:
     virtual ~IComponent() = default;
-    virtual void Tick() = 0;
+    virtual void Tick(float deltaTime) = 0;
     bool active = true;
 };
 
@@ -19,7 +19,7 @@ enum renderQueue {
 class RenderComponent : public IComponent {
 public:
     virtual void Render() = 0;
-    virtual void Tick() override {
+    virtual void Tick(float deltaTime) override {
         return;
     }
     // render priority, higher value means it will be rendered later
