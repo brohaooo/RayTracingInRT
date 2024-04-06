@@ -43,6 +43,8 @@ int main() {
     CPU_RAYTRACER::render_manager * CPURT_manager = new CPU_RAYTRACER::render_manager(initial_width, initial_height, camera, screenCanvas);
     // currently, renderer doesn't use the CPU ray tracer manager, so we don't attach it to the renderer
     // but the manager can visualize its ray tracing process and result by modifying the screen canvas
+    // ------------------------ load the scene to the CPU ray tracer ---------------------------
+    CPURT_manager->loadScene(Scene.CPURT_objects, &Scene.CPURT_skybox);
     // -----------------------------------------------------------------------------------------
     // ------------------------------ create camera controller object --------------------------
     // it is used to control the camera movement and rotation
@@ -140,7 +142,7 @@ int main() {
                 cameraController->setEnableCameraControl(false);
                 // start ray tracing thread
                 // such thread will write the output image to an array, and then the main thread will copy the array to the texture
-                CPURT_manager->CPURT_render_thread(Scene.CPURT_objects, &Scene.CPURT_skybox);
+                CPURT_manager->CPURT_render_thread();
 
 			}
             else{

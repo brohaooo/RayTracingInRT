@@ -1,9 +1,11 @@
 #ifndef CPU_RAYTRACER_RENDER_MANAGER_H
 #define CPU_RAYTRACER_RENDER_MANAGER_H
 
+
 #include "camera.h"
 #include "../Camera.h"
 #include "../Texture.h"
+#include <vector>
 #include "../Object.h"
 
 namespace CPU_RAYTRACER {
@@ -31,8 +33,8 @@ namespace CPU_RAYTRACER {
         {
         }
 
-        void CPURT_render_thread(const hittable_list &world, const skybox * skybox) {
-		    CPURT_camera->non_blocking_render(world, skybox);
+        void CPURT_render_thread() {
+		    CPURT_camera->non_blocking_render(BVH_root, skybox);
             unsigned char* rendered_output = CPURT_camera->rendered_image;
             if (screenCanvas == nullptr) {
                 std::cout<<"ERROR: screenCanvas is nullptr"<<std::endl;
@@ -83,11 +85,38 @@ namespace CPU_RAYTRACER {
             CPURT_camera->resetFinished();
         }
 
+        void loadScene(const hittable_list &_rayTraceObjects, const skybox * _skybox) {
+            // first clear the old objects
+            if (rayTraceObjectsList == nullptr){// lazy initialization
+                rayTraceObjectsList = make_shared<hittable_list>();
+            }
+            else{
+                rayTraceObjectsList->clear();
+            }
+            skybox = _skybox;
+            for (shared_ptr<hittable> rayTraceObject : _rayTraceObjects.objects) {
+                rayTraceObjectsList->add(rayTraceObject);
+            }
+            updateBVH();
+        }
+
+        void updateBVH() {
+            BVH_root.clear();
+            for(shared_ptr<hittable> rayTraceObject : rayTraceObjectsList->objects) {
+                BVH_root.add(rayTraceObject);
+            }
+            BVH_root = hittable_list(make_shared<CPU_RAYTRACER::BVH_node>(BVH_root));
+        }
+
     private:
         const Camera * GL_camera = nullptr; // camera for OpenGL rendering
         camera * CPURT_camera = nullptr; // camera for CPU ray tracing, should be updated based on the OpenGL camera
         Rect * screenCanvas = nullptr; // screen canvas for OpenGL rendering
         Texture * CPU_rendered_texture = nullptr; // texture for CPU ray tracing
+
+        shared_ptr<hittable_list> rayTraceObjectsList = nullptr; // it should be a list of hittable objects for CPU ray tracing (not the BVH tree!)
+        hittable_list BVH_root = nullptr; // BVH root for CPU ray tracing, calculated from CPURT_objects
+        const skybox * skybox = nullptr; // skybox for CPU ray tracing
 
         void Initialize_CPURT_camera(int _screen_width, int _screen_height) {
             // Setup ray_trace camera
