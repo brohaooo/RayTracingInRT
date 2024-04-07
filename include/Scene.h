@@ -19,6 +19,19 @@
 #include <iostream>
 #include <chrono>
 
+
+struct Light {
+    glm::vec3 position;
+    glm::vec3 color;
+    float intensity;
+    Light(glm::vec3 _position, glm::vec3 _color, float _intensity) : position(_position), color(_color), intensity(_intensity) {}
+    void set(glm::vec3 _position, glm::vec3 _color, float _intensity) {// update the light
+        position = _position;
+        color = _color;
+        intensity = _intensity;
+    }
+};
+
 class Scene {
 public:
     std::vector<SceneObject*> sceneObjects;
@@ -54,7 +67,7 @@ public:
 
     RayTraceScene(){
     
-        glm::vec3 rotationAxis = glm::vec3(0, 1, 0); // 旋转轴（绕y轴）
+        glm::vec3 rotationAxis = glm::vec3(0, 1, 0);
         glm::mat4 identity = glm::mat4(1.0);
         glm::vec3 v0(-1, 2, -0.2);
         glm::vec3 v1(1, 2, 0.2);
@@ -74,21 +87,23 @@ public:
         
         
         // teapot, would be a performance bottleneck because of the high triangle count
-        // Model* teapot = new Model("resource/teapot.obj");
-        // RayTraceObject * rayTraceObject7 = new RayTraceObject(teapot);
-        // rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, glm::vec4(0.8, 0.6, 0.8, 1.0));
-        // rayTraceObject7->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
-        // rayTraceObject7->update();
-        // rayTraceObjects.push_back(rayTraceObject7);
-        // rayTraceObject7->attachToSceneRenderList(renderQueue);
+        GModel* teapot = new GModel("resource/teapot.obj");
+        teapot->setSkyboxTexture(skyboxTexture);
+        RayTraceObject * rayTraceObject7 = new RayTraceObject(teapot);
+        rayTraceObject7->setMaterial(LAMBERTIAN, 1.5, glm::vec4(0.8, 0.6, 0.8, 1.0));
+        rayTraceObject7->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 2, 2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(0.01, 0.01, 0.01)));
+        rayTraceObject7->update();
+        rayTraceObjects.push_back(rayTraceObject7);
+        rayTraceObject7->attachToSceneRenderList(renderQueue);
         
         
         
         // the ground sphere
         GSphere * sphereObject2 = new GSphere();
+        sphereObject2->setSkyboxTexture(skyboxTexture);
         RayTraceObject * rayTraceObject2 = new RayTraceObject(sphereObject2);
         rayTraceObject2->setMaterial(LAMBERTIAN, 0.0, glm::vec4(0.5, 0.5, 0.5, 1.0));
-        rayTraceObject2->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, -10, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(10, 10, 10)));
+        rayTraceObject2->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, -100, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(100, 100, 100)));
         rayTraceObject2->update();
         rayTraceObjects.push_back(rayTraceObject2);
         rayTraceObject2->attachToSceneRenderList(renderQueue);
@@ -99,6 +114,7 @@ public:
         earthTexture->loadFromFile("resource/earthmap.jpg");
         earthTexture->createGPUTexture();
         GSphere* sphereObject3 = new GSphere();
+        sphereObject3->setSkyboxTexture(skyboxTexture);
         RayTraceObject * rayTraceObject3 = new RayTraceObject(sphereObject3);
         rayTraceObject3->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), earthTexture);
         
@@ -110,6 +126,7 @@ public:
         
         // the metal sphere
         GSphere* sphereObject4 = new GSphere();
+        sphereObject4->setSkyboxTexture(skyboxTexture);
         RayTraceObject * rayTraceObject4 = new RayTraceObject(sphereObject4);
         rayTraceObject4->setMaterial(METAL, 0.2, glm::vec4(0.7, 0.6, 0.5, 1.0));
         rayTraceObject4->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
@@ -119,6 +136,7 @@ public:
         
         // diffuse light sphere
         GSphere* sphereObject5 = new GSphere();
+        sphereObject5->setSkyboxTexture(skyboxTexture);
         RayTraceObject * rayTraceObject5 = new RayTraceObject(sphereObject5);
         rayTraceObject5->setMaterial(EMISSIVE, 0.0, glm::vec4(2, 2, 2, 1.0));
         rayTraceObject5->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.45, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
@@ -129,6 +147,7 @@ public:
         
         
         GTriangle* triangleObject = new GTriangle(v0, v1, v2);
+        triangleObject->setSkyboxTexture(skyboxTexture);
         RayTraceObject * rayTraceObject6 = new RayTraceObject(triangleObject);
         rayTraceObject6->setMaterial(LAMBERTIAN, 0.0, glm::vec4(0.5, 0.5, 0.5, 1.0));
         rayTraceObject6->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 0, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
@@ -142,6 +161,7 @@ public:
         cubeTexture->loadFromFile("resource/night.png");
         cubeTexture->createGPUTexture();
         GModel* cubeObject = new GModel("resource/cube.obj");
+        cubeObject->setSkyboxTexture(skyboxTexture);
         RayTraceObject * rayTraceObject8 = new RayTraceObject(cubeObject);
         rayTraceObject8->setMaterial(LAMBERTIAN, 0.0, glm::vec4(1.0, 1.0, 1.0, 1.0), cubeTexture);
         rayTraceObject8->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(1.5, 0.5, 2.0)) * glm::scale(glm::mat4(1.0), glm::vec3(0.5, 0.5, 0.5)));
@@ -151,8 +171,9 @@ public:
         
         // the glass sphere (transparent object in rendering order)
         GSphere * sphereObject = new GSphere();
+        sphereObject->setSkyboxTexture(skyboxTexture);
         RayTraceObject * rayTraceObject1 = new RayTraceObject(sphereObject,TRANSPARENT);
-        rayTraceObject1->setMaterial(DIELECTRIC, 1.5, glm::vec4(0.3, 0.4, 0.8, 0.2));
+        rayTraceObject1->setMaterial(DIELECTRIC, 1.5, glm::vec4(0.3, 0.4, 0.8, 0.6));
         rayTraceObject1->setModelMatrix(glm::translate(glm::mat4(1.0), glm::vec3(0, 1, -2.2)) * glm::scale(glm::mat4(1.0), glm::vec3(1, 1, 1)));
         rayTraceObject1->update();
         rayTraceObjects.push_back(rayTraceObject1);

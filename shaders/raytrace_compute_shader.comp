@@ -605,53 +605,18 @@ void main() {
     // ray tracing
     vec3 color;
 
-
     Ray ray;
     ray.origin = cameraPos;
     ray.direction = rayDir;
     HitRecord hitRecord;
 
-
-    //---debug---
-    //bool hit = hitBLAS(ray, 0.001, 10000.0, hitRecord, 0);
-    //if(hit){
-    //    imageStore(outputImage, texCoord, vec4(hitRecord.color, 1.0));
-    //    return;
-    //}
-    //else{
-    //    color = texture(skyboxTexture, rayDir).rgb;
-    //    imageStore(outputImage, texCoord, vec4(color, 1.0));
-    //    return;
-    //}
-    //---debug---
-
     color = rayColor(ray, maxDepth);
-
-//   float tMin = 0.0;
-//   float tMax = 10000.0;
-//    bool hit = hitBVH(ray, tMin, tMax, hitRecord);
-//
-//
-//    if(hit){
-//        imageStore(outputImage, texCoord, vec4(hitRecord.color, 1.0));
-//        return;
-//    }
-//
-//    // just get the color from the skybox
-//    if (hasSkybox) {
-//        color = texture(skyboxTexture, rayDir).rgb;
-//    }
 
     
     // mix the color with the last frame (temporal denoising)
     vec3 lastColor = imageLoad(outputImage, texCoord).rgb;
     color = mix(lastColor, color, 1.0/float(frameCounter));
 
-    //vec2 uv = vec2(float(texCoord.x) / float(imageWidth), float(texCoord.y) / float(imageHeight));
-    //vec3 testSampleArrayTexture = texture(sceneTextures, vec3(uv, 0)).rgb;
-    //imageStore(outputImage, texCoord, vec4(testSampleArrayTexture, 1.0));
-    //return;
-    
     imageStore(outputImage, texCoord, vec4(color, 1.0));
     return;
 }

@@ -19,7 +19,7 @@ class GLTEXTURE {
 public:
     int width, height;
     int channels;
-    GLenum internalFormat;
+    GLenum internalFormat; //
     GLenum dataFormat;
 
     GLTEXTURE() : textureRef(0), width(0), height(0), channels(0), internalFormat(GL_RGB), dataFormat(GL_UNSIGNED_BYTE) {};
@@ -287,11 +287,13 @@ class SkyboxTexture {
         for (unsigned int i = 0; i < faces.size(); i++) {
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, faces[i].width, faces[i].height, 0, GL_RGB, GL_UNSIGNED_BYTE, faces[i].getData());
         }
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+        // generate mipmaps
+        glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
     };
     void destroy(){
         for (auto& face : faces) {

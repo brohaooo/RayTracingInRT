@@ -21,10 +21,15 @@ public:
         renderPriority = _renderPriority;
     }
     void Render() override {
+        if (context != nullptr) {
+            obj->prepareDraw(context);
+        }
         obj->draw();
     }
+
 private:
     GMVPObject * obj;
+    RenderContext * context = nullptr;
 };
 
 
@@ -39,6 +44,8 @@ public:
 private:
     GMVPObject * obj;
 };
+
+
 
 
 
@@ -74,7 +81,7 @@ public:
 
 
     void setMaterial(int type, float fuzzOrIOR, glm::vec4 baseColor, Texture * _texture = nullptr) {
-        material.type = type; // 0: lambertian, 1: metal, 2: dielectric
+        material.type = type; // 0: lambertian, 1: metal, 2: dielectric, 3: emissive
         // ensure if fuzziness, it is in the range [0, 1]
         if (type == 1) {
             material.fuzzOrIOR = glm::clamp(fuzzOrIOR, 0.0f, 1.0f);
@@ -86,10 +93,9 @@ public:
         material.baseColor = glm::vec3(baseColor);
         obj->setColor(baseColor);
         // we specify the corresponding shader in default renderer to make it easy to manage the mapping between raytracing material type and rasterization shading shader 
-        const char * vertexShaderPath = "shaders/texture_shader.vert";
-        const char * fragmentShaderPath = "shaders/shader.frag";
+        const char * vertexShaderPath = "shaders/object_shader.vert";
+        const char * fragmentShaderPath = "shaders/object_shader.frag";
         if (_texture != nullptr) {
-            fragmentShaderPath = "shaders/texture_shader.frag";
             obj->setTexture(_texture);
             this->texture = _texture;
             // resize the texture to 1024x1024x3
@@ -107,9 +113,14 @@ public:
         else if (type == 3) {
             obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
         }
-    
-        // then inform the ray tracer to update the TLAS
-        // ... not implemented yet
+        else{
+            // unsupported material type, use lambertian with red color
+            std::cout<<"unsupported material type"<<std::endl;
+            obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
+        }
+        obj->shader->use();
+        obj->shader->setInt("MaterialType", type);
+
     }
    
     void update(){
@@ -344,7 +355,7 @@ public:
     // since the BLAS is relatively static in the scene, we can build it with a slower algorithm
     // but the resulting BVH should be more efficient in the ray tracing process
     // here we use SAH to build the BVH
-    int buildBLASBVH(int left, int right, int maxTrianglesPerNode = 8) {
+    int buildBLASBVH(int left, int right, int maxTrianglesPerNode = 7) {
         using GPU_RAYTRACER::BLASNode;
         if (left > right) {
             std::cout<<"[buildBLASBVH]: error: left > right"<<std::endl;

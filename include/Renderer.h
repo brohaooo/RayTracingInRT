@@ -22,31 +22,10 @@
 
 
 
-
-struct PBR_parameters {
-	float eta = 0.5f;
-	float m = 0.5f;
-    float rotationAngle = 0.0f;
-    int render_mode = 0;// 0: full lighting, 1: fresnel only, 2: distribution only, 3: geometric only
-    glm::vec3 ka_color = glm::vec3(0.1f, 0.1f, 0.1f);
-    glm::vec3 kd_color = glm::vec3(0.5f, 0.5f, 0.5f);
-    glm::vec3 ks_color = glm::vec3(0.5f, 0.5f, 0.5f);
-};
-
 struct UBORenderInfo {
     glm::mat4 view;
     glm::mat4 projection;
     glm::vec3 cameraPos;
-    float eta; // it helps cameraPos padded to 16 bytes
-    float m;
-    int render_mode;
-    float padding1[2];
-    glm::vec3 ka_color;
-    float padding2;
-    glm::vec3 kd_color;
-    float padding3;
-    glm::vec3 ks_color;
-    float padding4;
 };
 
 
@@ -63,9 +42,6 @@ class Renderer {
     int screen_height = 600;
     RenderContext context;// not used for now, we use UBO to pass the camera info
     FrameRateMonitor * frameRateMonitor = nullptr;
-
-
-    PBR_parameters pbr_params;
 
     GLuint global_ubo;
     UBORenderInfo uploadData;
@@ -173,7 +149,7 @@ class Renderer {
         glBindBuffer(GL_UNIFORM_BUFFER, global_ubo);
 
         uploadData.cameraPos = camera->Position;
-        uploadData.projection = glm::perspective(glm::radians(camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
+        uploadData.projection = glm::perspective(glm::radians(camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 500.0f);
         uploadData.view = camera->GetViewMatrix();
         glBufferData(GL_UNIFORM_BUFFER, sizeof(uploadData), &uploadData, GL_STATIC_DRAW);
         glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -196,7 +172,7 @@ class Renderer {
 
     void updateUboData() {
 		uploadData.cameraPos = camera->Position;
-		uploadData.projection = glm::perspective(glm::radians(camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 100.0f);
+		uploadData.projection = glm::perspective(glm::radians(camera->Zoom), static_cast<float>(screen_width) / static_cast<float>(screen_height), 0.1f, 500.0f);
 		uploadData.view = camera->GetViewMatrix();
 	}
 
@@ -209,7 +185,7 @@ class Renderer {
 	}
 
     void renderCanvas() {
-        screenCanvas->prepareDraw(context);
+        screenCanvas->prepareDraw(&context);
         screenCanvas->draw();
     }
 
@@ -227,12 +203,6 @@ class Renderer {
 	void render(Scene & _scene, bool render_screenCanvas = false, bool render_ImGUI = true) {
         // update the UBO data
         updateUboData();
-        uploadData.eta = pbr_params.eta;
-        uploadData.m = pbr_params.m;
-        uploadData.render_mode = pbr_params.render_mode;
-        uploadData.ka_color = pbr_params.ka_color;
-        uploadData.kd_color = pbr_params.kd_color;
-        uploadData.ks_color = pbr_params.ks_color;
 
         // upload the UBO data
         uploadUbo();
@@ -242,7 +212,7 @@ class Renderer {
             // for a comparison visualization
             // we preserve the color buffer, but clear the depth buffer, because we will draw the screenCanvas on top of the openGL objects
             glClear(GL_DEPTH_BUFFER_BIT); 
-            screenCanvas->prepareDraw(context);
+            screenCanvas->prepareDraw(&context);
             screenCanvas->draw();
             if (render_ImGUI) {
                 render_IMGUI();
@@ -297,23 +267,6 @@ class Renderer {
 			ImGui::Text("CAM FOV: %.3f", camera->Zoom);
 		}
         ImGui::End();
-//        if (ImGui::Begin("CONTROL PANEL", nullptr)) {
-//
-//            ImGui::SliderFloat("Rotation", &pbr_params.rotationAngle, 0.0f, 360.0f);
-//            ImGui::SliderFloat("eta", &pbr_params.eta, 0.0f, 1.0f);
-//            ImGui::SliderFloat("m", &pbr_params.m, 0.0f, 1.0f);
-//            // radio buttons
-//            ImGui::RadioButton("Full Lighting", &pbr_params.render_mode, 0); ImGui::SameLine();
-//            ImGui::RadioButton("Fresnel", &pbr_params.render_mode, 1); ImGui::SameLine();
-//            ImGui::RadioButton("Distribution", &pbr_params.render_mode, 2); ImGui::SameLine();
-//            ImGui::RadioButton("Geometric", &pbr_params.render_mode, 3);
-//            // color edit picker
-//            ImGui::ColorEdit3("ka", (float*)&pbr_params.ka_color);
-//            ImGui::ColorEdit3("kd", (float*)&pbr_params.kd_color);
-//            ImGui::ColorEdit3("ks", (float*)&pbr_params.ks_color);
-//            
-//        }
-//		  ImGui::End();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		// --------------------------------

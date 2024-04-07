@@ -20,6 +20,12 @@ public:
 	glm::mat4 viewMatrix;
 	glm::mat4 projectionMatrix;
 	glm::vec3 cameraPos;
+	// light info
+	int lightCount;
+	glm::vec3 lightPos;
+	glm::vec3 lightColor;
+	glm::vec3 ambientColor;
+
 };
 
 
@@ -30,14 +36,14 @@ public:
 	GLuint VBO;
 	Shader *shader;
 	bool hasTexture = false;
-	Texture * texture;
+	Texture * texture = nullptr;
 
 
 	// draw function, to be implemented by derived classes
 	virtual void draw() = 0;
 	// do before draw, to be implemented by derived classes
 	// since we use ubo to pass vp matrix, this function is not useful currently
-	virtual void prepareDraw(const RenderContext& context) {
+	virtual void prepareDraw(const RenderContext * context) {
 		// default implementation: do nothing
 	}
 	virtual void setShader(Shader* _shader) {
@@ -89,7 +95,7 @@ class GRect : public GScreenSpaceObject {
 			glDeleteBuffers(1, &VBO);
 		};
 
-		void prepareDraw(const RenderContext& context) override {
+		void prepareDraw(const RenderContext * context) override {
 			
 		}
 
@@ -100,24 +106,37 @@ class GRect : public GScreenSpaceObject {
 				glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 				shader->setInt("texture1", 0);
 			}	
+			shader->setBool("useTexture", hasTexture);
 			glBindVertexArray(VAO);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glBindVertexArray(0);
 		}
 };
 
+// the base class for all MVP objects, which contains a model matrix and a color
+// it also contains a ref to skybox texture, which is used for IBL rendering part
+// if no skybox texture is set, the object should use a default skybox texture with pure black color (not implemented yet)
 class GMVPObject : public GObject {
 public:
 	glm::mat4 model;
 	glm::vec4 color;
-	void prepareDraw(const RenderContext& context) override {
-		// not used currently, we use ubo to pass vp matrix
+	SkyboxTexture * skyboxTexture = nullptr;
+	void prepareDraw(const RenderContext * context) override {
+		// set the light info
+		shader->use();
+		shader->setVec3("lightPos", context->lightPos);
+		shader->setVec3("lightColor", context->lightColor);
+		shader->setVec3("ambientLightColor", context->ambientColor);
+		shader->setInt("numOfLights", context->lightCount);
 	}
 	virtual void setModel(glm::mat4 _model) {
 		model = _model;
 	}
 	virtual void setColor(glm::vec4 _color) {
 		color = _color;
+	}
+	virtual void setSkyboxTexture(SkyboxTexture * _texture) {
+		skyboxTexture = _texture;
 	}
 };
 
@@ -155,8 +174,10 @@ public:
 			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 			shader->setInt("texture1", 0);
 		}
+		shader->setBool("useTexture", hasTexture);
 		shader->setMat4("model", model);
 		shader->setVec4("color", color);
+		shader->setInt("skyboxTexture", skyboxTexture->getTextureRef());
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 10800, GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -228,38 +249,6 @@ public:
 };
 
 
-class GTransparantSphere : public GSphere {
-
-public:
-	float transparancy = 0.5;
-	void setTransparancy(float _transparancy) {
-		if (_transparancy > 1.0) {
-			_transparancy = 1.0;
-		}
-		else if (_transparancy < 0.0) {
-			_transparancy = 0.0;
-		}
-		transparancy = _transparancy;
-	}
-
-	void draw() override {
-		shader->use();
-		if (hasTexture) {
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
-			shader->setInt("texture1", 0);
-		}
-		shader->setMat4("model", model);
-		shader->setVec4("color", color);
-		shader->setFloat("transparancy", transparancy);
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 10800, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-	}
-};
-
-
-
 
 // a single triangle
 class GTriangle : public GMVPObject {
@@ -297,8 +286,10 @@ glm::vec2 t0,t1,t2;
 			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 			shader->setInt("texture1", 0);
 		}
+		shader->setBool("useTexture", hasTexture);
 		shader->setMat4("model", model);
 		shader->setVec4("color", color);
+		shader->setInt("skyboxTexture", skyboxTexture->getTextureRef());
 		glBindVertexArray(VAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
@@ -434,9 +425,6 @@ class GMesh : public GMVPObject {
 	std::vector<glm::vec3> normals;
 	std::vector<glm::vec2> uvs;
 	std::vector<GLuint> indices;
-
-	// tmp implementation:
-	glm::mat4 rotation = glm::mat4(1.0f);
 
 	// render data
 	// same as any other object, we have a VAO, VBO
@@ -597,10 +585,6 @@ class GMesh : public GMVPObject {
 	}
 
 
-	void prepareDraw(const RenderContext& context) override {
-		
-	}
-
 	// render the mesh
 	void draw() override
 	{
@@ -610,9 +594,10 @@ class GMesh : public GMVPObject {
 			glBindTexture(GL_TEXTURE_2D, texture->getTextureRef());
 			shader->setInt("texture1", 0);
 		}
+		shader->setBool("useTexture", hasTexture);
 		shader->setMat4("model", model);
-		shader->setMat4("rotation", rotation); // tmp implementation
 		shader->setVec4("color", color); // set the color
+		shader->setInt("skyboxTexture", skyboxTexture->getTextureRef());
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -665,6 +650,12 @@ class GModel : public GMVPObject {
 			meshes[i]->color = _color;
 	}
 
+	void setSkyboxTexture(SkyboxTexture * _texture) override {
+		skyboxTexture = _texture;
+		for (unsigned int i = 0; i < meshes.size(); i++)
+			meshes[i]->setSkyboxTexture(_texture);
+	}
+
 	void draw() override
 	{
 		for (unsigned int i = 0; i < meshes.size(); i++)
@@ -697,7 +688,7 @@ class GModel : public GMVPObject {
 			meshes[i]->setModel(_model);
 	}
 
-	void prepareDraw(const RenderContext& context) override {
+	void prepareDraw(const RenderContext * context) override {
 		
 		for (unsigned int i = 0; i < meshes.size(); i++)
 			meshes[i]->prepareDraw(context);
