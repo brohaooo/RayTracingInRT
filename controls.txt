@@ -1,0 +1,5 @@
+WASDQE - camera movement
+1 - switch to default rendering mode
+2 - switch to CPU ray-tracing mode
+3 - switch to GPU ray-tracing mode
+F/G - show/hide cursor

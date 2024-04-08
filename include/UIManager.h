@@ -92,7 +92,7 @@ public:
     void drawWindow() override {
         if (!display) return;
         ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 240, 10), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(230, 170), ImGuiCond_Always);
+		ImGui::SetNextWindowSize(ImVec2(230, 140), ImGuiCond_Always);
         if (ImGui::Begin("LOG", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
 
 			ImGui::Text("FPS: %.1f ", frameRateMonitor->getFPS()); ImGui::SameLine(); ImGui::Text("| %.1f ", frameRateMonitor->getAverageFPS());

@@ -84,11 +84,15 @@ add_custom_command(
     "copying ${CMAKE_CURRENT_SOURCE_DIR}/outputs to ${OUTPUT_DIR}/outputs"
     COMMENT "Copying output folder to build directory")
 
-# Pack
-include (InstallRequiredSystemLibraries)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin/Release/
+        DESTINATION .
+        USE_SOURCE_PERMISSIONS
+        PATTERN "*.pdb" EXCLUDE)
+
+include(InstallRequiredSystemLibraries)
 set (CPACK_RESOURCE_FILE_LICENSE  
-     "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
-set (CPACK_PACKAGE_VERSION_MAJOR "${${PROJECT_NAME}_VERSION_MAJOR}")
-set (CPACK_PACKAGE_VERSION_MINOR "${${PROJECT_NAME}_VERSION_MINOR}")
-set(CPACK_SOURCE_GENERATOR "TGZ")
-include (CPack)
+     "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_VERSION_MAJOR "${${PROJECT_NAME}_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${${PROJECT_NAME}_VERSION_MINOR}")
+set(CPACK_GENERATOR "ZIP") 
+include(CPack)
