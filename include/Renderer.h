@@ -1,5 +1,5 @@
-#ifndef RT_RENDERER_H
-#define RT_RENDERER_H
+#ifndef RENDERER_H
+#define RENDERER_H
 
 #include <glm/glm.hpp>
 #include <glad/glad.h>
@@ -15,9 +15,6 @@
 #include <chrono>
 #include <list>
 
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_opengl3.h"
 
 
 
@@ -40,7 +37,7 @@ class Renderer {
     Camera * camera = nullptr;
     int screen_width = 800;
     int screen_height = 600;
-    RenderContext context;// not used for now, we use UBO to pass the camera info
+    RenderContext * context;
     FrameRateMonitor * frameRateMonitor = nullptr;
 
     GLuint global_ubo;
@@ -111,37 +108,13 @@ class Renderer {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
-        // set up Dear ImGui context
-         //imgui config----------------------
-        ImGui_initialize();
-        // --------------------------------
-
         InitializeUbo();
         // set up the screenCanvas, it will be used to display the ray tracing result (either CPU version or GPU version)
         screenCanvas = new GRect();
 
-	}
+        context = new RenderContext();
 
-    void ImGui_initialize() {
-        // set up Dear ImGui context
-         //imgui config----------------------
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        // set color theme
-        ImGui::StyleColorsDark();
-        // embed imgui into glfw and opengl3
-        ImGui_ImplGlfw_InitForOpenGL(window, true);
-        // OpenGL version 3.3
-        ImGui_ImplOpenGL3_Init("#version 330");
-        ImGuiIO& io = ImGui::GetIO();
-        (void)io;
-        // font setting
-        io.Fonts->AddFontFromFileTTF("resource/fonts/Cousine-Regular.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
-        io.Fonts->AddFontFromFileTTF("resource/fonts/DroidSans.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
-        io.Fonts->AddFontFromFileTTF("resource/fonts/Karla-Regular.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
-        io.Fonts->AddFontFromFileTTF("resource/fonts/ProggyClean.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
-        io.Fonts->AddFontFromFileTTF("resource/fonts/Roboto-Medium.ttf", 13.0f, NULL, io.Fonts->GetGlyphRangesDefault());
-    }
+	}
 
     void InitializeUbo() {
         
@@ -185,7 +158,7 @@ class Renderer {
 	}
 
     void renderCanvas() {
-        screenCanvas->prepareDraw(&context);
+        screenCanvas->prepareDraw(context);
         screenCanvas->draw();
     }
 
@@ -212,11 +185,8 @@ class Renderer {
             // for a comparison visualization
             // we preserve the color buffer, but clear the depth buffer, because we will draw the screenCanvas on top of the openGL objects
             glClear(GL_DEPTH_BUFFER_BIT); 
-            screenCanvas->prepareDraw(&context);
+            screenCanvas->prepareDraw(context);
             screenCanvas->draw();
-            if (render_ImGUI) {
-                render_IMGUI();
-            }
 
             return; // if ray tracing is enabled, then the screenCanvas will be updated in the ray tracing thread
             // but we don't need to render the openGL objects in this case, so we return here
@@ -231,6 +201,21 @@ class Renderer {
             //GPURT_manager->draw_BLAS_AABB();
         }
 
+        // get light info
+        std::vector<Light*> & sceneLights = _scene.sceneLights;
+        // currently we only support one light and it is a point light
+        if (sceneLights.size() > 0) {
+            Light * light = sceneLights[0];
+            if (light->lightType == POINT_LIGHT) {
+                PointLight * pointLight = dynamic_cast<PointLight*>(light);
+                context->lightPos = pointLight->position;
+                context->lightColor = pointLight->color;
+                context->lightCount = sceneLights.size();
+                context->ambientColor = glm::vec3(0.4,0.4,0.5);
+            }
+        }
+
+
         std::vector<std::shared_ptr<RenderComponent>> & renderQueue = _scene.renderQueue;
         // render the scene using openGL rasterization pipeline
         for (auto renderComponent : renderQueue) {
@@ -239,39 +224,8 @@ class Renderer {
             }
         }
         
-    
-        // imgui---------------------------
-        if (render_ImGUI){
-            render_IMGUI();
-        }
-        
-        // --------------------------------
 
-        
 	}
-
-
-    void render_IMGUI() {
-		// imgui---------------------------
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 240, 10), ImGuiCond_Always);
-		ImGui::SetNextWindowSize(ImVec2(230, 120), ImGuiCond_Always);
-        if (ImGui::Begin("LOG", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
-
-			ImGui::Text("FPS: %.1f ", frameRateMonitor->getFPS()); ImGui::SameLine(); ImGui::Text("| %.1f ", frameRateMonitor->getAverageFPS());
-			ImGui::Text("IS_REALTIME: %s", frameRateMonitor->isRealTime() ? "TRUE" : "FALSE");
-			ImGui::Text("CAM POS: %.3f %.3f %.3f", camera->Position[0], camera->Position[1], camera->Position[2]);
-			ImGui::Text("CAM DIR: %.3f %.3f %.3f", camera->Front[0], camera->Front[1], camera->Front[2]);
-			ImGui::Text("CAM FOV: %.3f", camera->Zoom);
-		}
-        ImGui::End();
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-		// --------------------------------
-	}   
-
 
 
     private:

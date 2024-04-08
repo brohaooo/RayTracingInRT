@@ -16,9 +16,10 @@ enum MaterialType {
 
 class ObjectRenderComponent : public RenderComponent {
 public:
-    ObjectRenderComponent(GMVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
+    ObjectRenderComponent(GMVPObject * _obj, enum renderQueue _renderPriority = OPAQUE, RenderContext * _context = nullptr) {
         this->obj = _obj;
         renderPriority = _renderPriority;
+        this->context = _context;
     }
     void Render() override {
         if (context != nullptr) {
@@ -33,17 +34,6 @@ private:
 };
 
 
-class ObjectAnimationComponent : public IComponent {
-public:
-    ObjectAnimationComponent(GMVPObject * _obj) {
-        this->obj = _obj;
-    }
-    void Tick(float deltaTime) override {
-        obj->setModel(glm::rotate(obj->model,glm::radians(3.0f) * deltaTime, glm::vec3(0, 1, 0)));
-    }
-private:
-    GMVPObject * obj;
-};
 
 
 
@@ -57,11 +47,11 @@ private:
 // instead of inheriting from GObject class, it contains an GObject pointer, and it can be constructed from an GObject pointer
 class RayTraceObject : public RenderableSceneObject {
 public:
-    RayTraceObject(GMVPObject * _obj, enum renderQueue _renderPriority = OPAQUE) {
+    RayTraceObject(GMVPObject * _obj, enum renderQueue _renderPriority = OPAQUE, RenderContext * _context = nullptr) {
         this->obj = _obj;
         encodePrimitive();
         constructLocalBLAS();
-        this->renderComponent = std::make_shared<ObjectRenderComponent>(obj,_renderPriority);
+        this->renderComponent = std::make_shared<ObjectRenderComponent>(obj,_renderPriority,_context);
         
     }
     ~RayTraceObject() {
@@ -106,9 +96,16 @@ public:
         }
         else if (type == 1) {
             obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
+            // hard-coded metal material uniforms
+            obj->shader->use();
+            obj->shader->setFloat("averageSlope", std::min(std::max(material.fuzzOrIOR, 0.0f), 1.0f));
+            obj->shader->setFloat("refractionRatio", 0.0f);
         }
         else if (type == 2) {
             obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
+            obj->shader->use();
+            obj->shader->setFloat("refractionRatio", material.fuzzOrIOR);
+            obj->shader->setFloat("averageSlope", 0.0f);
         }
         else if (type == 3) {
             obj->setShader(new Shader(vertexShaderPath, fragmentShaderPath));
@@ -270,7 +267,7 @@ public:
             // encode the model to the primitive struct
             // loop through the triangles of the model on all the meshes
             for(GMesh* mesh : model->meshes){
-                for (unsigned int i = 0; i < mesh->indices.size(); i+=3){
+                for (unsigned int i = 0; i < mesh->indices.size()-2; i+=3){
                     // encode the triangle to the primitive struct
                     GPU_RAYTRACER::Primitive primitive;
                     primitive.primitiveInfo = glm::vec3(0, 0, 0);
@@ -570,7 +567,7 @@ GSkybox * skybox;
 
 RayTraceSkybox(GSkybox * _skybox) {
     this->skybox = _skybox;
-    this->renderComponent = std::make_shared<ObjectRenderComponent>(_skybox, SKYBOX);
+    this->renderComponent = std::make_unique<ObjectRenderComponent>(_skybox, SKYBOX);
     // copy the skybox data to CPU_skybox
     std::vector<void*> data_list; 
     std::vector<int> width_list; 
@@ -596,6 +593,75 @@ RayTraceSkybox(GSkybox * _skybox) {
 
     
 };
+
+
+class ObjectRotationComponent : public IComponent {
+public:
+    ObjectRotationComponent(float _rotationSpeed = 3.0f) {
+        this->rotationSpeed = _rotationSpeed;
+    }
+    void Tick(float deltaTime) override {
+        // cast to RayTraceObject
+        if (owner == nullptr) {
+            std::cout<<"[ObjectRotationComponent]: owner is nullptr"<<std::endl;
+            return;
+        }
+        if (dynamic_cast<RayTraceObject*>(owner)) {
+            RayTraceObject * rayTraceObject = dynamic_cast<RayTraceObject*>(owner);
+            rayTraceObject->setModelMatrix(glm::rotate(rayTraceObject->getModelMatrix(), glm::radians(rotationSpeed) * deltaTime, glm::vec3(0, 1, 0)));
+        }
+
+    }
+private:
+    float rotationSpeed = 3.0f;
+};
+
+class ObjectPeriodicTranslationComponent : public IComponent {
+public:
+    ObjectPeriodicTranslationComponent(glm::vec3 _translationSpeed = glm::vec3(0, 0, 0), glm::vec3 _translationRange = glm::vec3(0, 0, 0)) {
+        this->translationSpeed = _translationSpeed;
+        this->translationRange = _translationRange;
+        this->currentTranslation = glm::vec3(0, 0, 0);
+    }
+    void Tick(float deltaTime) override {
+        // cast to RayTraceObject
+        if (owner == nullptr) {
+            std::cout<<"[ObjectRotationComponent]: owner is nullptr"<<std::endl;
+            return;
+        }
+        if (dynamic_cast<RayTraceObject*>(owner)) {
+            RayTraceObject * rayTraceObject = dynamic_cast<RayTraceObject*>(owner);
+            
+            glm::vec3 scale = glm::vec3(rayTraceObject->getModelMatrix()[0][0], rayTraceObject->getModelMatrix()[1][1], rayTraceObject->getModelMatrix()[2][2]);
+            glm::vec3 translation = translationSpeed * deltaTime;
+            translation = translation / scale; // adjust the translation by the scale of the object
+            if (glm::length(currentTranslation + translation) > glm::length(translationRange / scale)) {
+                translation = -translation;
+                translationSpeed = -translationSpeed;
+            }
+            rayTraceObject->setModelMatrix(glm::translate(rayTraceObject->getModelMatrix(), translation));
+            currentTranslation = currentTranslation + translation;
+        }
+        else if (dynamic_cast<PointLight*>(owner)) {
+            PointLight * pointLight = dynamic_cast<PointLight*>(owner);
+            glm::vec3 translation = translationSpeed * deltaTime;
+            if (glm::length(currentTranslation + translation) > glm::length(translationRange)) {
+                translation = -translation;
+                translationSpeed = -translationSpeed;
+            }
+            pointLight->position = pointLight->position + translation;
+            currentTranslation = currentTranslation + translation;
+        
+        }
+
+    }
+private:
+    glm::vec3 translationSpeed = glm::vec3(0, 0, 0);
+    glm::vec3 translationRange = glm::vec3(0, 0, 0);
+    glm::vec3 currentTranslation = glm::vec3(0, 0, 0);
+};
+
+
 
 
 

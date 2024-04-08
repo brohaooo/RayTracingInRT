@@ -23,9 +23,9 @@ uniform float averageSlope = 0.5;  // aka m (roughness)
 
 // light properties
 uniform int numOfLights = 1; // not support multiple lights currently, but it won't to too hard to implement
-uniform vec3 lightPos = vec3(1.5,0.45,0); // a point light
-uniform vec3 lightColor = vec3(2,2,2); 
-uniform vec3 ambientLightColor = vec3(0.4,0.4,0.5); // environment light, usually set to sky color
+uniform vec3 lightPos; // a point light
+uniform vec3 lightColor; 
+uniform vec3 ambientLightColor; // environment light, usually set to sky color
 
 
 const float PI = 3.14159265359;
@@ -73,10 +73,12 @@ void main()
 
     // ambient
     ambientColor = baseColor.xyz * ambientLightColor;
+    ambientColor = max(ambientColor, vec3(0.0,0.0,0.0));
     // diffuse
     float diff = max(NdotL, 0.0);
     diffuseColor =  baseColor.xyz * lightColor * diff;
     diffuseColor *= attenuation;
+    diffuseColor = max(diffuseColor, vec3(0.0,0.0,0.0));
     // specular -- Cook-Torrance BRDF
     float F, D, G;
     // F: Fresnel term
@@ -105,13 +107,14 @@ void main()
 
     specularColor = ( FDG / (PI * max(NdotV,epsilon)) )* lightColor *  baseColor.xyz;
     specularColor *= attenuation;
+    specularColor = max(specularColor, vec3(0.0,0.0,0.0));
 
     if (MaterialType == 1) // metal
     {
         finalColor = ambientColor + diffuseColor + specularColor;
         // reflection to sample the environment map
         vec3 reflectionDir = reflect(-viewDir, normal);
-        float LodLevel = averageSlope * 15.0;
+        float LodLevel = averageSlope * 37.5;
         vec3 reflectedColor = textureLod(skyboxTexture, reflectionDir, LodLevel).rgb * baseColor.xyz;
         finalColor = finalColor + reflectedColor;
     }
@@ -122,7 +125,7 @@ void main()
         vec3 reflectionDir = reflect(-viewDir, normal);
         vec3 reflectedColor = textureLod(skyboxTexture, reflectionDir, 0).rgb * vec3(1.0,1.0,1.0);
         // refraction to sample the environment map
-        vec3 refractionDir = refract(-viewDir, normal, refractionRatio);
+        vec3 refractionDir = refract(-viewDir, normal, F0);
         vec3 refractedColor = textureLod(skyboxTexture, refractionDir, 0).rgb * vec3(1.0,1.0,1.0);
         // mix the two colors based on the reflectance
         vec3 finalReflectedColor = mix(reflectedColor + diffuseColor + specularColor, refractedColor, min(F, 0.8));

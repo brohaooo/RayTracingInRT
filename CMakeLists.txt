@@ -83,3 +83,12 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E echo
     "copying ${CMAKE_CURRENT_SOURCE_DIR}/outputs to ${OUTPUT_DIR}/outputs"
     COMMENT "Copying output folder to build directory")
+
+# Pack
+include (InstallRequiredSystemLibraries)
+set (CPACK_RESOURCE_FILE_LICENSE  
+     "${CMAKE_CURRENT_SOURCE_DIR}/License.txt")
+set (CPACK_PACKAGE_VERSION_MAJOR "${${PROJECT_NAME}_VERSION_MAJOR}")
+set (CPACK_PACKAGE_VERSION_MINOR "${${PROJECT_NAME}_VERSION_MINOR}")
+set(CPACK_SOURCE_GENERATOR "TGZ")
+include (CPack)

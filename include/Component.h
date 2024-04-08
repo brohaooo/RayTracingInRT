@@ -2,11 +2,25 @@
 #define COMPONENT_H
 
 
+// forward declaration
+class SceneObject;
+
 class IComponent {
 public:
     virtual ~IComponent() = default;
     virtual void Tick(float deltaTime) = 0;
     bool active = true;
+    SceneObject * getOwner() {
+        return owner;
+    }
+    void setOwner(SceneObject * _owner) {
+        owner = _owner;
+    }
+    bool hasOwner() {
+        return owner != nullptr;
+    }
+protected:
+    SceneObject * owner = nullptr;
 };
 
 enum renderQueue {

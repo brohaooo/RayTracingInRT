@@ -17,9 +17,6 @@
 // not used currently, we use ubo to pass vp matrix
 struct RenderContext {
 public:
-	glm::mat4 viewMatrix;
-	glm::mat4 projectionMatrix;
-	glm::vec3 cameraPos;
 	// light info
 	int lightCount;
 	glm::vec3 lightPos;

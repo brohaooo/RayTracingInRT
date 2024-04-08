@@ -92,7 +92,7 @@ namespace CPU_RAYTRACER {
 	// or load these triangles from a list of vertices and indices into a std::vector<shared_ptr<hittable>>
 	// this should be the correct way to load a mesh, since CPU_RAYTRACER should rely on the user to provide the vertices and indices
 	void load_triangles(std::vector<shared_ptr<hittable>> & triangles, const std::vector<glm::vec3>& vertices, const std::vector<glm::vec2>& uvs, const std::vector<glm::vec3>& normals, const std::vector<unsigned int>& indices, shared_ptr<material> mat) {
-		for (unsigned int i = 0; i < indices.size(); i += 3)
+		for (unsigned int i = 0; i < indices.size()-2; i += 3)
 		{
 			triangles.push_back(std::make_shared<triangle>(
 				vertices[indices[i]],

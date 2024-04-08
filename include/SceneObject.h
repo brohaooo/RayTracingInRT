@@ -7,8 +7,15 @@
 
 class SceneObject {
 public:
-    void addComponent(std::shared_ptr<IComponent> component) {
-        components.push_back(component);
+    void addComponent(std::unique_ptr<IComponent> component) {
+        // each component should only belong to one object
+        // so we should check if the component is already attached to another object
+        if (component->hasOwner()) {
+            std::cout << "ERROR: [addComponent] Component already has an owner\n";
+            return;
+        }
+        component->setOwner(this);
+        components.push_back(std::move(component));
     }
 
     void Tick(float deltaTime) {
@@ -37,9 +44,40 @@ public:
     }
 
 protected:
-    std::vector<std::shared_ptr<IComponent>> components;
+    std::vector<std::unique_ptr<IComponent>> components;
     bool active = true;
 };
+
+enum LightType {
+        POINT_LIGHT,
+        DIRECTIONAL_LIGHT,
+        SPOT_LIGHT
+};
+
+class Light : public SceneObject {
+    public:
+    Light(glm::vec3 _color) : color(_color) {}
+    Light() {}
+    virtual ~Light() {}
+    glm::vec3 color;
+    enum LightType lightType;
+};
+
+class PointLight : public Light {
+public:
+    PointLight(glm::vec3 _position, glm::vec3 _color) : position(_position) {
+        lightType = POINT_LIGHT;
+        color = _color;
+    }
+    void set(glm::vec3 _position, glm::vec3 _color) {// update the light
+        position = _position;
+        color = _color;
+        lightType = POINT_LIGHT;
+    }
+    glm::vec3 position;
+};
+
+
 
 class RenderableSceneObject : public SceneObject {
 public:

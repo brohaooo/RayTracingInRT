@@ -41,10 +41,11 @@ private:
 void keyboardActions(RTRTStateMachine * state_machine,RayTraceCameraController * camera_controller , float deltaTime, GLFWwindow* window, GPU_RAYTRACER::RaytraceManager * GPURT_manager
 )
 {    
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){
+        glfwSetWindowShouldClose(window, true);
+    }
     std::string current_state = state_machine->get_current_state()->name;
     if (current_state != "CPU ray-tracing") { // while in CPU ray tracing state, we disable the keyboard input
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-            glfwSetWindowShouldClose(window, true);
         if (camera_controller->canControlCamera()) {
             bool camera_moved = false;
             if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS){

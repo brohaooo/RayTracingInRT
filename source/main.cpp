@@ -4,6 +4,7 @@
 #include "RayTraceControl.h"
 #include "FrameRateMonitor.h"
 #include "InputHandler.h"
+#include "UIManager.h"
 
 
 
@@ -21,13 +22,14 @@ int main() {
     // -----------------------------------------------------------------------------------------
     // ---- create renderer, which is used for rendering ---------------------------------------
     Renderer renderer(initial_width, initial_height, camera);
+    RenderContext * renderContext = renderer.context; // get the render context from the renderer
     // --- get screen canvas from renderer, it will be the final output in deferred rendering --
     // it will be used to display the ray tracing result
     GRect * screenCanvas = renderer.screenCanvas; 
     screenCanvas->setShader(new Shader("shaders/texture_display.vert", "shaders/texture_display.frag"));
     // -----------------------------------------------------------------------------------------
     // ------------------------------ create Scene object --------------------------------------
-    RayTraceScene Scene; // create Scene object, which contains all the objects in the Scene
+    RayTraceScene Scene(renderContext); // create Scene object, which contains all the objects in the Scene
     std::cout<<"scene created"<<std::endl;
     // -----------------------------------------------------------------------------------------
     // ------------------------------ create GPU ray tracer manager object ---------------------
@@ -88,11 +90,20 @@ int main() {
         GLFWwindow * window = renderer.window;
         keyboardActions(&state_machine, cameraController, deltaTime, window, GPURT_manager);
     });
+    // initialize imgui
+    //renderer.ImGui_initialize(); // very important to initialize imgui after you register the callbacks, otherwise imgui's callbacks will be overwritten
+    // ----------------create UI manager object for managing the user interface-----------------
+    UIManager uiManager;
+    uiManager.Initialize(renderer.window);
+    // ------------------------------ create log window object ---------------------------------
+    bool enable_scene_tick = false; // enable/disable ticking of scene objects
+    LogWindow * logWindow = new LogWindow(frameRateMonitor, camera, &enable_scene_tick);
+    uiManager.RegisterWindow(logWindow); // register the log window to the UI manager
     // -----------------------------------------------------------------------------------------
     // ------------------- get the list of scene objects from the scene ------------------------
     // they will be ticked in the main loop (some will also be rendered in the rendering loop)
     std::vector<SceneObject*> & sceneObjects = Scene.sceneObjects;
-
+    
     // main loop
     while (!glfwWindowShouldClose(renderer.window))
     {
@@ -108,18 +119,23 @@ int main() {
         inputHandler->processKeyboardInput(); // process input will be disabled in ray tracing state by disabling renderer's keyboard input
 
         // Tick all the scene objects
-        for (SceneObject * sceneObject : sceneObjects) {
-            sceneObject->Tick(deltaTime);
+        if ((current_state == "Default render state" || current_state == "GPU_ray_tracing state")&& enable_scene_tick){
+            for (SceneObject * sceneObject : sceneObjects) {
+                sceneObject->Tick(deltaTime);
+            }
+        }
+        if ((current_state == "Default render state" || current_state == "GPU_ray_tracing state")&& enable_scene_tick){
+            GPURT_manager->updateTLAS();
         }
 
 
-        // // update model matrices for scene objects
-        // if (current_state == "Default render state" || current_state == "GPU_ray_tracing state"){
-        //     for (RayTraceObject * rayTraceObject : Scene.rayTraceObjects) {
-        //         rayTraceObject->setModelMatrix(glm::rotate(rayTraceObject->getModelMatrix(),glm::radians(10.0f) * frameRateMonitor->getFrameDeltaTime(), glm::vec3(0, 1, 0)));
-        //     }
-        //     GPURT_manager->updateTLAS();
-        // }
+        //// update model matrices for scene objects
+        //if ((current_state == "Default render state" || current_state == "GPU_ray_tracing state")&& enable_scene_tick){
+        //    for (RayTraceObject * rayTraceObject : Scene.rayTraceObjects) {
+        //        rayTraceObject->setModelMatrix(glm::rotate(rayTraceObject->getModelMatrix(),glm::radians(10.0f) * frameRateMonitor->getFrameDeltaTime(), glm::vec3(0, 1, 0)));
+        //    }
+        //    GPURT_manager->updateTLAS();
+        //}
 
 
         // if state changed, print it as debugging info
@@ -196,6 +212,15 @@ int main() {
         bool draw_imgui = current_state == "Default render state" || current_state == "GPU_ray_tracing state";
         renderer.render(Scene, display_screen_canvas,draw_imgui); // render the scene using openGL rasterization pipeline
 
+        // draw UIs
+        if (draw_imgui) {
+            uiManager.enableAllWindows();
+        }
+        else {
+            uiManager.disableAllWindows();
+        }
+        uiManager.Render();
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         renderer.swap_buffers();
         renderer.poll_events();
@@ -204,6 +229,13 @@ int main() {
 
 	}
 
+    
+    // imgui: terminate, clearing all previously allocated imgui resources.
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    // glfw: terminate, clearing all previously allocated GLFW resources.
+    glfwTerminate();
 
      
     return 0;

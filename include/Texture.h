@@ -158,6 +158,81 @@ public:
         setSize(newWidth, newHeight, newChannels);
     }
 
+    void addAlphaChannel() {
+        if (channels == 4) {
+            std::cerr << "Texture already has alpha channel" << std::endl;
+            return;
+        }
+        
+        if (dataFormat != GL_UNSIGNED_BYTE) {
+            std::cerr << "Unsupported data format for adding alpha channel: " << dataFormat << std::endl;
+            return;
+        }
+
+        
+        size_t newDataSize = width * height * 4;
+        unsigned char* newData = (unsigned char*)malloc(newDataSize);
+
+        if (newData == nullptr) {
+            std::cerr << "Failed to allocate memory for texture with alpha" << std::endl;
+            return;
+        }
+
+        unsigned char* byteData = static_cast<unsigned char*>(data);
+        for (int i = 0; i < width * height; ++i) {
+            // copy RGB data
+            
+            newData[4 * i] = byteData[3 * i];           // R
+            newData[4 * i + 1] = byteData[3 * i + 1];   // G
+            newData[4 * i + 2] = byteData[3 * i + 2];   // B
+            // add alpha channel, set to 255 (fully opaque)
+            newData[4 * i + 3] = 255;          // A
+        }
+        // update the data
+        free(data);
+        data = newData;
+        internalFormat = GL_RGBA;
+        channels = 4;
+
+    }
+    void removeAlphaChannel() {
+        if (channels == 3) {
+            std::cerr << "Texture already has no alpha channel" << std::endl;
+            return;
+        }
+
+        if (dataFormat != GL_UNSIGNED_BYTE) {
+            std::cerr << "Unsupported data format for removing alpha channel: " << dataFormat << std::endl;
+            return;
+        }
+
+        size_t newDataSize = width * height * 3;
+        unsigned char* newData = (unsigned char*)malloc(newDataSize);
+
+        if (newData == nullptr) {
+            std::cerr << "Failed to allocate memory for texture without alpha" << std::endl;
+            return;
+        }
+
+        unsigned char* byteData = static_cast<unsigned char*>(data);
+        for (int i = 0; i < width * height; ++i) {
+            // only copy RGB data, ignore the alpha channel
+            
+            newData[3 * i] = byteData[4 * i];      // R
+            newData[3 * i + 1] = byteData[4 * i + 1];  // G
+            newData[3 * i + 2] = byteData[4 * i + 2];  // B
+        }
+        // update the data
+        free(data);
+        data = newData;
+
+        internalFormat = GL_RGB;
+        channels = 3;
+
+    }
+
+
+
 
     void createGPUTexture() override {
         if (textureRef != 0) {
