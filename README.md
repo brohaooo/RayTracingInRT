@@ -8,9 +8,8 @@ It uses two-layered BVH acceleration for ray-object hit calculation (TLAS & BLAS
 ## Controls
 You can press 1/2/3 to switch between default rasterization/ CPU ray-tracing/ GPU accelerated ray-tracing.
 
-![](resource/examples/sample_1.png)
-![](resource/examples/sample_2.png)
-![](resource/examples/sample_3.png)
+![](resource/examples/sample_5.png)
+![](resource/examples/sample_6.png)
 ![](resource/examples/sample_4.png)
 
 
