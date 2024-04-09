@@ -90,11 +90,10 @@ int main() {
         GLFWwindow * window = renderer.window;
         keyboardActions(&state_machine, cameraController, deltaTime, window, GPURT_manager);
     });
-    // initialize imgui
-    //renderer.ImGui_initialize(); // very important to initialize imgui after you register the callbacks, otherwise imgui's callbacks will be overwritten
     // ----------------create UI manager object for managing the user interface-----------------
     UIManager uiManager;
-    uiManager.Initialize(renderer.window);
+    // very important to initialize imgui after you register the callbacks, otherwise imgui's callbacks will be overwritten
+    uiManager.Initialize(renderer.window); // initialize the UI manager, it will also initialize the ImGui library
     // ------------------------------ create log window object ---------------------------------
     bool enable_scene_tick = false; // enable/disable ticking of scene objects
     LogWindow * logWindow = new LogWindow(frameRateMonitor, camera, &enable_scene_tick);
