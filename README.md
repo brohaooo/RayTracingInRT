@@ -8,6 +8,7 @@ It uses two-layered BVH acceleration for ray-object hit calculation (TLAS & BLAS
 ## Controls
 You can press 1/2/3 to switch between default rasterization/ CPU ray-tracing/ GPU accelerated ray-tracing. You can also see how TLAS volumes look like and how they update by clicking 'enable scene tick' option.
 
+![](resource/examples/sample_0.gif)
 ![](resource/examples/sample_7.png)
 ![](resource/examples/sample_8.png)
 ![](resource/examples/sample_9.png)
