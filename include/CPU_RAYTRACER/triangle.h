@@ -22,8 +22,8 @@ namespace CPU_RAYTRACER {
 		face_normal = glm::normalize(face_normal);
 		glm::vec3 min = glm::min(v0, glm::min(v1, v2));
 		glm::vec3 max = glm::max(v0, glm::max(v1, v2));
-		// 微调最小值和最大值，确保包围盒在所有轴上都有厚度
-		const float epsilon = 1e-4f; // 微调量
+		// ensure AABB has positive size along all axis
+		const float epsilon = 1e-4f; // the minimum value of thickness
 		for (int i = 0; i < 3; ++i) {
 			if (min[i] == max[i]) {
 				min[i] -= epsilon;
@@ -50,7 +50,7 @@ namespace CPU_RAYTRACER {
         S1E1 = glm::dot(E1, S1);
 		//std::cout << "hit triangle" << std::endl;
         if (S1E1 > -EPSILON && S1E1 < EPSILON)
-            return false;    // 射线与三角形平行
+            return false;    // ray is parallel to the triangle
 
         inv_S1E1 = 1.0f / S1E1;
         S = origin - v0;
@@ -93,7 +93,7 @@ namespace CPU_RAYTRACER {
 		rec.mat = mat;
 		rec.set_face_normal(r, normal);
 		
-		// 三角形的uv坐标
+		// triangle's UV coordinate 
 		get_triangle_uv(b1, b2, rec.u, rec.v);
 
 		return true;
